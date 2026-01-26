@@ -5,6 +5,8 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { SHAPES_MAP } from '../data/shapes.js';
+import { MATERIALS_MAP, getMaterialById } from '../data/materials.js';
+import { materialRenderer } from '../systems/MaterialRenderer.js';
 
 export default class GeoPet {
     constructor(config = {}) {
@@ -14,8 +16,14 @@ export default class GeoPet {
         this.shapeId = config.shapeId || 'circulo';
         this.eyeType = config.eyeType || 'circle';
         this.mouthType = config.mouthType || 'simple';
-        this.primaryColor = config.primaryColor || '#00ffff';
-        this.secondaryColor = config.secondaryColor || '#ff00ff';
+        
+        // NOVO: Sistema de Materiais (substitui cores simples)
+        this.materialId = config.materialId || 'aetherium';
+        
+        // Cores legadas derivadas do material (para sistemas legados como MaterializationSystem)
+        const material = getMaterialById(this.materialId);
+        this.primaryColor = config.primaryColor || material.palette.glow;
+        this.secondaryColor = config.secondaryColor || material.palette.core;
         
         // ═══════════════════════════════════════════════════════════════════
         // POSIÇÃO E TRANSFORMAÇÕES
@@ -596,13 +604,19 @@ export default class GeoPet {
     }
     
     drawGlow(renderer) {
-        const { r, g, b } = renderer.hexToRgb(this.primaryColor);
+        // Usa a cor do material para o glow
+        const material = getMaterialById(this.materialId);
+        const glowColor = material ? material.palette.glow : this.primaryColor;
+        const { r, g, b } = renderer.hexToRgb(glowColor);
         const glowRadius = this.size * this.scale * 1.6;
+        
+        // Intensidade do glow varia por material
+        const intensity = material ? material.render.glowIntensity : 0.5;
         
         // Múltiplas camadas de glow
         for (let layer = 4; layer >= 1; layer--) {
             const radius = glowRadius + layer * 6;
-            const alpha = Math.round(25 * (1 - layer / 5));
+            const alpha = Math.round(25 * intensity * (1 - layer / 5));
             renderer.drawCircleRgba(this.x, this.y, radius, r, g, b, alpha);
         }
     }
@@ -614,15 +628,21 @@ export default class GeoPet {
         const params = shape.getParams(this.size * this.scale);
         const cy = this.y + breathOffset;
         
+        // Atualiza o tempo do MaterialRenderer
+        materialRenderer.update(16);
+        
         if (params.type === 'circle') {
             const rx = params.radius * scaleX / this.scale;
             const ry = params.radius * scaleY / this.scale;
             
-            // Preenchimento com gradiente radial
-            this.fillEllipseGradient(renderer, this.x, cy, rx, ry);
+            // Gera pontos do círculo como polígono
+            const circlePoints = this.generateCirclePoints(this.x, cy, rx, ry, 32);
             
-            // Contorno neon
-            this.drawNeonEllipse(renderer, this.x, cy, rx, ry);
+            // Usa o MaterialRenderer para preencher
+            materialRenderer.fill(renderer, this.x, cy, circlePoints, this.materialId);
+            
+            // Borda com material
+            materialRenderer.stroke(renderer, circlePoints, this.materialId);
             
         } else if (params.type === 'polygon') {
             // Transforma vértices
@@ -631,12 +651,25 @@ export default class GeoPet {
                 y: cy + v.y * scaleY / this.scale
             }));
             
-            // Preenchimento com gradiente
-            renderer.fillPolygonGradient(transformed, this.secondaryColor, this.primaryColor);
-            
-            // Contorno neon
-            this.drawNeonPolygon(renderer, transformed);
+            // Usa o MaterialRenderer para preencher e contornar
+            materialRenderer.fill(renderer, this.x, cy, transformed, this.materialId);
+            materialRenderer.stroke(renderer, transformed, this.materialId);
         }
+    }
+    
+    /**
+     * Gera pontos de um círculo/elipse como polígono
+     */
+    generateCirclePoints(cx, cy, rx, ry, segments = 32) {
+        const points = [];
+        for (let i = 0; i < segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            points.push({
+                x: cx + Math.cos(angle) * rx,
+                y: cy + Math.sin(angle) * ry
+            });
+        }
+        return points;
     }
     
     // Elipse com gradiente radial (usando setPixel)
@@ -1180,6 +1213,7 @@ export default class GeoPet {
             shapeId: this.shapeId,
             eyeType: this.eyeType,
             mouthType: this.mouthType,
+            materialId: this.materialId,
             primaryColor: this.primaryColor,
             secondaryColor: this.secondaryColor,
             hunger: this.hunger,

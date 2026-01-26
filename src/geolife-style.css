@@ -663,3 +663,153 @@ body::after {
 #respawn-btn:hover {
     box-shadow: 0 0 15px rgba(189, 0, 255, 0.4);
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MATERIAL SELECTION BUTTONS
+   ═══════════════════════════════════════════════════════════════════ */
+
+.material-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 8px;
+}
+
+.material-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 10px;
+    min-width: 55px;
+    background: rgba(10, 10, 20, 0.8);
+    border: 2px solid var(--material-glow, #888);
+    color: var(--material-glow, #888);
+    font-family: 'Press Start 2P', monospace;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.material-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(
+        ellipse at center,
+        var(--material-core, transparent) 0%,
+        transparent 70%
+    );
+    opacity: 0.15;
+    transition: opacity 0.3s;
+}
+
+.material-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--material-glow, #888);
+}
+
+.material-btn:hover::before {
+    opacity: 0.3;
+}
+
+.material-btn.selected {
+    background: rgba(20, 20, 40, 0.9);
+    transform: scale(1.1);
+    box-shadow: 
+        0 0 25px var(--material-glow, #888),
+        inset 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+.material-btn.selected::before {
+    opacity: 0.4;
+    animation: material-pulse 2s ease-in-out infinite;
+}
+
+@keyframes material-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.5; }
+}
+
+.material-symbol {
+    font-size: 20px;
+    margin-bottom: 4px;
+    text-shadow: 0 0 10px currentColor;
+}
+
+.material-label {
+    font-size: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Material description box */
+.material-description {
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 8px;
+    text-align: center;
+    min-height: 60px;
+}
+
+.material-name {
+    display: block;
+    font-size: 8px;
+    font-weight: bold;
+    margin-bottom: 6px;
+    text-shadow: 0 0 10px currentColor;
+}
+
+.material-text {
+    font-size: 6px;
+    color: #aaa;
+    line-height: 1.8;
+}
+
+/* Specific material button styles */
+.material-btn[data-id="aetherium"] {
+    --material-glow: #00ffff;
+    --material-core: #e0f7ff;
+}
+
+.material-btn[data-id="crystaline"] {
+    --material-glow: #ff00ff;
+    --material-core: #ff00ff;
+}
+
+.material-btn[data-id="ignis"] {
+    --material-glow: #ff6600;
+    --material-core: #ffffff;
+}
+
+.material-btn[data-id="voidmatter"] {
+    --material-glow: #4444ff;
+    --material-core: #000022;
+}
+
+.material-btn[data-id="verdantia"] {
+    --material-glow: #00ff44;
+    --material-core: #aaffaa;
+}
+
+.material-btn[data-id="ferrum"] {
+    --material-glow: #aaccff;
+    --material-core: #dddddd;
+}
+
+.material-btn[data-id="tempestium"] {
+    --material-glow: #ffff00;
+    --material-core: #ffffff;
+}
+
+.material-btn[data-id="umbralith"] {
+    --material-glow: #9944ff;
+    --material-core: #1a1a2e;
+}

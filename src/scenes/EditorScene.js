@@ -5,7 +5,8 @@
 import Renderer from '../core/Renderer.js';
 import GeoPet from '../entities/GeoPet.js';
 import { SHAPES } from '../data/shapes.js';
-import { EYES, MOUTHS, COLORS } from '../data/faces.js';
+import { EYES, MOUTHS } from '../data/faces.js';
+import { MATERIALS } from '../data/materials.js';
 import { UISoundSystem } from '../systems/UISoundSystem.js';
 import { PetVoiceSystem } from '../systems/PetVoiceSystem.js';
 import MaterializationSystem from '../systems/MaterializationSystem.js';
@@ -27,8 +28,7 @@ export default class EditorScene {
             shapeIndex: 0,
             eyeIndex: 0,
             mouthIndex: 0,
-            primaryColorIndex: 0,
-            secondaryColorIndex: 1
+            materialIndex: 0  // Novo: índice do material
         };
         
         // UI Elements
@@ -101,6 +101,15 @@ export default class EditorScene {
             </div>
             
             <div class="editor-section">
+                <h3>MATÉRIA-PRIMA</h3>
+                <div class="material-row" id="material-options"></div>
+                <div class="material-description" id="material-desc">
+                    <span class="material-name"></span>
+                    <span class="material-text"></span>
+                </div>
+            </div>
+            
+            <div class="editor-section">
                 <h3>OLHOS</h3>
                 <div class="option-row" id="eye-options"></div>
             </div>
@@ -110,16 +119,6 @@ export default class EditorScene {
                 <div class="option-row" id="mouth-options"></div>
             </div>
             
-            <div class="editor-section">
-                <h3>COR PRIMÁRIA</h3>
-                <div class="color-row" id="primary-color-options"></div>
-            </div>
-            
-            <div class="editor-section">
-                <h3>COR SECUNDÁRIA</h3>
-                <div class="color-row" id="secondary-color-options"></div>
-            </div>
-            
             <button id="create-pet-btn" class="neon-btn">★ CRIAR PET ★</button>
         `;
         
@@ -127,6 +126,7 @@ export default class EditorScene {
         
         this.populateOptions();
         this.bindEvents();
+        this.updateMaterialDescription();
     }
     
     populateOptions() {
@@ -140,6 +140,24 @@ export default class EditorScene {
             btn.innerHTML = `<span class="icon">${shape.icon}</span><span class="label">${shape.name}</span>`;
             btn.title = shape.desc;
             shapeContainer.appendChild(btn);
+        });
+        
+        // Materials (NOVO!)
+        const materialContainer = document.getElementById('material-options');
+        MATERIALS.forEach((material, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'material-btn' + (index === this.selection.materialIndex ? ' selected' : '');
+            btn.dataset.index = index;
+            btn.dataset.type = 'material';
+            btn.dataset.id = material.id;
+            btn.innerHTML = `<span class="material-symbol">${material.symbol}</span><span class="material-label">${material.name}</span>`;
+            btn.title = material.shortDesc;
+            
+            // Cor de fundo baseada na paleta do material
+            btn.style.setProperty('--material-glow', material.palette.glow);
+            btn.style.setProperty('--material-core', material.palette.core);
+            
+            materialContainer.appendChild(btn);
         });
         
         // Eyes
@@ -165,38 +183,44 @@ export default class EditorScene {
             btn.title = mouth.desc;
             mouthContainer.appendChild(btn);
         });
+    }
+    
+    updateMaterialDescription() {
+        const material = MATERIALS[this.selection.materialIndex];
+        const nameEl = document.querySelector('.material-name');
+        const textEl = document.querySelector('.material-text');
         
-        // Primary Colors
-        const primaryContainer = document.getElementById('primary-color-options');
-        COLORS.forEach((color, index) => {
-            const btn = document.createElement('button');
-            btn.className = 'color-btn' + (index === this.selection.primaryColorIndex ? ' selected' : '');
-            btn.dataset.index = index;
-            btn.dataset.type = 'primaryColor';
-            btn.style.backgroundColor = color.hex;
-            btn.style.boxShadow = `0 0 10px ${color.hex}`;
-            btn.title = color.name;
-            primaryContainer.appendChild(btn);
-        });
-        
-        // Secondary Colors
-        const secondaryContainer = document.getElementById('secondary-color-options');
-        COLORS.forEach((color, index) => {
-            const btn = document.createElement('button');
-            btn.className = 'color-btn' + (index === this.selection.secondaryColorIndex ? ' selected' : '');
-            btn.dataset.index = index;
-            btn.dataset.type = 'secondaryColor';
-            btn.style.backgroundColor = color.hex;
-            btn.style.boxShadow = `0 0 10px ${color.hex}`;
-            btn.title = color.name;
-            secondaryContainer.appendChild(btn);
-        });
+        if (nameEl && textEl && material) {
+            nameEl.textContent = `${material.symbol} ${material.name}`;
+            nameEl.style.color = material.palette.glow;
+            textEl.textContent = material.description;
+        }
     }
     
     bindEvents() {
         // Option buttons - hover e click com som
-        document.querySelectorAll('.option-btn, .color-btn').forEach(btn => {
-            btn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        document.querySelectorAll('.option-btn, .material-btn').forEach(btn => {
+            btn.addEventListener('mouseenter', () => {
+                UISoundSystem.playHover();
+                // Mostra descrição ao hover nos materiais
+                if (btn.dataset.type === 'material') {
+                    const index = parseInt(btn.dataset.index);
+                    const mat = MATERIALS[index];
+                    const nameEl = document.querySelector('.material-name');
+                    const textEl = document.querySelector('.material-text');
+                    if (nameEl && textEl) {
+                        nameEl.textContent = `${mat.symbol} ${mat.name}`;
+                        nameEl.style.color = mat.palette.glow;
+                        textEl.textContent = mat.description;
+                    }
+                }
+            });
+            btn.addEventListener('mouseleave', () => {
+                // Volta para a seleção atual
+                if (btn.dataset.type === 'material') {
+                    this.updateMaterialDescription();
+                }
+            });
             btn.addEventListener('click', (e) => this.onOptionClick(e));
         });
         
@@ -229,7 +253,18 @@ export default class EditorScene {
             case 'shape':
                 this.selection.shapeIndex = index;
                 this.pet.shapeId = SHAPES[index].id;
-                // Re-materializa quando muda a forma (efeito especial)
+                // Re-materializa quando muda a forma
+                this.rematerialize();
+                break;
+            case 'material':
+                this.selection.materialIndex = index;
+                const selectedMaterial = MATERIALS[index];
+                this.pet.materialId = selectedMaterial.id;
+                // Atualiza cores legadas baseado no material (para MaterializationSystem)
+                this.pet.primaryColor = selectedMaterial.palette.glow;
+                this.pet.secondaryColor = selectedMaterial.palette.core;
+                // Atualiza descrição e re-materializa
+                this.updateMaterialDescription();
                 this.rematerialize();
                 break;
             case 'eye':
@@ -240,14 +275,6 @@ export default class EditorScene {
                 this.selection.mouthIndex = index;
                 this.pet.mouthType = MOUTHS[index].id;
                 break;
-            case 'primaryColor':
-                this.selection.primaryColorIndex = index;
-                this.pet.primaryColor = COLORS[index].hex;
-                break;
-            case 'secondaryColor':
-                this.selection.secondaryColorIndex = index;
-                this.pet.secondaryColor = COLORS[index].hex;
-                break;
         }
         
         // Atualiza UI
@@ -257,14 +284,15 @@ export default class EditorScene {
     updateSelectedButtons(type, selectedIndex) {
         const containerId = {
             'shape': 'shape-options',
+            'material': 'material-options',
             'eye': 'eye-options',
-            'mouth': 'mouth-options',
-            'primaryColor': 'primary-color-options',
-            'secondaryColor': 'secondary-color-options'
+            'mouth': 'mouth-options'
         }[type];
         
         const container = document.getElementById(containerId);
-        container.querySelectorAll('.option-btn, .color-btn').forEach((btn, i) => {
+        if (!container) return;
+        
+        container.querySelectorAll('.option-btn, .material-btn').forEach((btn, i) => {
             btn.classList.toggle('selected', i === selectedIndex);
         });
     }
@@ -291,6 +319,8 @@ export default class EditorScene {
     // ═══════════════════════════════════════════════════════════════════
     
     createPet() {
+        const material = MATERIALS[this.selection.materialIndex];
+        
         this.pet = new GeoPet({
             x: this.canvas.width / 2,
             y: this.canvas.height / 2,
@@ -299,8 +329,10 @@ export default class EditorScene {
             shapeId: SHAPES[this.selection.shapeIndex].id,
             eyeType: EYES[this.selection.eyeIndex].id,
             mouthType: MOUTHS[this.selection.mouthIndex].id,
-            primaryColor: COLORS[this.selection.primaryColorIndex].hex,
-            secondaryColor: COLORS[this.selection.secondaryColorIndex].hex
+            materialId: material.id,
+            // Cores legadas para compatibilidade
+            primaryColor: material.palette.glow,
+            secondaryColor: material.palette.core
         });
         
         // Inicia materialização cyber-alquímica
