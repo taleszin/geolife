@@ -1,14 +1,29 @@
 // ═══════════════════════════════════════════════════════════════════
 // RENDERER - Motor de Renderização com Algoritmos de CG
 // setPixel como base + Bresenham + Midpoint + Scanline
+// Otimizado para Mobile com DPR e Idle Detection
 // ═══════════════════════════════════════════════════════════════════
 
 export default class Renderer {
-    constructor(canvas) {
+    constructor(canvas, options = {}) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.width = canvas.width;
-        this.height = canvas.height;
+        
+        // Device Pixel Ratio para displays de alta densidade
+        this.dpr = options.dpr || window.devicePixelRatio || 1;
+        this.useDPR = options.useDPR !== false;
+        
+        // Dimensões lógicas (CSS) vs físicas (canvas)
+        this.logicalWidth = options.width || canvas.width;
+        this.logicalHeight = options.height || canvas.height;
+        
+        // Aplica DPR se habilitado
+        if (this.useDPR && this.dpr > 1) {
+            this.setupHighDPI();
+        } else {
+            this.width = canvas.width;
+            this.height = canvas.height;
+        }
         
         // ImageData para manipulação pixel a pixel
         this.imageData = this.ctx.createImageData(this.width, this.height);
@@ -16,6 +31,286 @@ export default class Renderer {
         
         // Buffer de profundidade (para futuro uso)
         this.depthBuffer = new Float32Array(this.width * this.height);
+        
+        // ═══════════════════════════════════════════════════════════════
+        // SISTEMA DE OTIMIZAÇÃO (Battery Saving)
+        // ═══════════════════════════════════════════════════════════════
+        this.isDirty = true;          // Flag de renderização necessária
+        this.isIdle = false;          // Em modo ocioso?
+        this.lastActivityTime = Date.now();
+        this.idleTimeout = 3000;      // 3s sem atividade = idle
+        this.frameSkip = 0;           // Contador de frames pulados
+        this.maxFrameSkip = 2;        // Máximo de frames a pular quando idle
+        
+        // Window/Viewport para clipping (Cohen-Sutherland)
+        this.viewport = {
+            x: 0,
+            y: 0,
+            width: this.width,
+            height: this.height,
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0
+        };
+        
+        // Listener de orientação
+        this.orientationHandler = null;
+        this.resizeHandler = null;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // HIGH DPI SUPPORT
+    // ═══════════════════════════════════════════════════════════════════
+    
+    setupHighDPI() {
+        // Define tamanho físico do canvas (em pixels reais)
+        this.width = Math.floor(this.logicalWidth * this.dpr);
+        this.height = Math.floor(this.logicalHeight * this.dpr);
+        
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+        
+        // Mantém tamanho CSS (lógico)
+        this.canvas.style.width = this.logicalWidth + 'px';
+        this.canvas.style.height = this.logicalHeight + 'px';
+        
+        // Escala o contexto para desenhar em coordenadas lógicas
+        // mas com resolução física
+        this.ctx.scale(this.dpr, this.dpr);
+        
+        console.log(`📱 High DPI: ${this.logicalWidth}x${this.logicalHeight} @ ${this.dpr}x = ${this.width}x${this.height}px`);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // RESPONSIVE RESIZE
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Configura resize automático com suporte a orientação
+     */
+    setupResponsive(container, options = {}) {
+        const { 
+            maintainAspectRatio = true,
+            minWidth = 280,
+            minHeight = 400,
+            maxWidth = 600,
+            maxHeight = 800,
+            padding = 20
+        } = options;
+        
+        const resize = () => {
+            const containerWidth = container.clientWidth || window.innerWidth;
+            const containerHeight = container.clientHeight || window.innerHeight;
+            
+            let newWidth = containerWidth - padding * 2;
+            let newHeight = containerHeight - padding * 2;
+            
+            // Aplica limites
+            newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+            newHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+            
+            // Mantém proporção se necessário
+            if (maintainAspectRatio) {
+                const aspectRatio = this.logicalWidth / this.logicalHeight;
+                const containerRatio = newWidth / newHeight;
+                
+                if (containerRatio > aspectRatio) {
+                    newWidth = newHeight * aspectRatio;
+                } else {
+                    newHeight = newWidth / aspectRatio;
+                }
+            }
+            
+            this.resize(Math.floor(newWidth), Math.floor(newHeight));
+        };
+        
+        // Listener de resize
+        this.resizeHandler = resize;
+        window.addEventListener('resize', resize);
+        
+        // Listener de orientação
+        this.orientationHandler = () => {
+            // Pequeno delay para garantir que as dimensões estão corretas
+            setTimeout(resize, 100);
+        };
+        
+        if (screen.orientation) {
+            screen.orientation.addEventListener('change', this.orientationHandler);
+        } else {
+            window.addEventListener('orientationchange', this.orientationHandler);
+        }
+        
+        // Resize inicial
+        resize();
+        
+        return this;
+    }
+    
+    /**
+     * Redimensiona o canvas mantendo a qualidade
+     */
+    resize(newLogicalWidth, newLogicalHeight) {
+        this.logicalWidth = newLogicalWidth;
+        this.logicalHeight = newLogicalHeight;
+        
+        // Recalcula dimensões físicas
+        if (this.useDPR && this.dpr > 1) {
+            this.width = Math.floor(newLogicalWidth * this.dpr);
+            this.height = Math.floor(newLogicalHeight * this.dpr);
+            
+            this.canvas.width = this.width;
+            this.canvas.height = this.height;
+            this.canvas.style.width = newLogicalWidth + 'px';
+            this.canvas.style.height = newLogicalHeight + 'px';
+            
+            this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+            this.ctx.scale(this.dpr, this.dpr);
+        } else {
+            this.width = newLogicalWidth;
+            this.height = newLogicalHeight;
+            this.canvas.width = this.width;
+            this.canvas.height = this.height;
+        }
+        
+        // Recria ImageData
+        this.imageData = this.ctx.createImageData(this.width, this.height);
+        this.pixels = this.imageData.data;
+        this.depthBuffer = new Float32Array(this.width * this.height);
+        
+        // Atualiza viewport
+        this.viewport.width = this.width;
+        this.viewport.height = this.height;
+        
+        this.markDirty();
+    }
+    
+    /**
+     * Retorna se está em modo portrait ou landscape
+     */
+    getOrientation() {
+        return this.logicalWidth < this.logicalHeight ? 'portrait' : 'landscape';
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // OTIMIZAÇÃO DE BATERIA
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Marca que há conteúdo novo para renderizar
+     */
+    markDirty() {
+        this.isDirty = true;
+        this.isIdle = false;
+        this.lastActivityTime = Date.now();
+    }
+    
+    /**
+     * Registra atividade do usuário
+     */
+    registerActivity() {
+        this.lastActivityTime = Date.now();
+        this.isIdle = false;
+        this.frameSkip = 0;
+    }
+    
+    /**
+     * Verifica se deve renderizar este frame
+     * @returns {boolean} true se deve renderizar
+     */
+    shouldRender() {
+        const now = Date.now();
+        
+        // Verifica idle
+        if (now - this.lastActivityTime > this.idleTimeout) {
+            this.isIdle = true;
+        }
+        
+        // Se está idle, pula alguns frames
+        if (this.isIdle) {
+            this.frameSkip++;
+            if (this.frameSkip <= this.maxFrameSkip) {
+                return false;
+            }
+            this.frameSkip = 0;
+        }
+        
+        // Renderiza se está sujo ou não está idle
+        return this.isDirty || !this.isIdle;
+    }
+    
+    /**
+     * Limpa flag de dirty após renderização
+     */
+    rendered() {
+        this.isDirty = false;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // VIEWPORT / WINDOW (para Clipping)
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Define a janela de visualização (para zoom/pan)
+     */
+    setViewport(x, y, width, height) {
+        this.viewport.x = x;
+        this.viewport.y = y;
+        this.viewport.width = width;
+        this.viewport.height = height;
+        this.markDirty();
+    }
+    
+    /**
+     * Aplica zoom centrado em um ponto
+     */
+    applyZoom(scale, centerX, centerY) {
+        const oldScale = this.viewport.scale;
+        const newScale = Math.max(0.5, Math.min(3, oldScale * scale));
+        
+        // Ajusta offset para manter o ponto central fixo
+        const scaleChange = newScale / oldScale;
+        this.viewport.offsetX = centerX - (centerX - this.viewport.offsetX) * scaleChange;
+        this.viewport.offsetY = centerY - (centerY - this.viewport.offsetY) * scaleChange;
+        this.viewport.scale = newScale;
+        
+        this.markDirty();
+    }
+    
+    /**
+     * Transforma coordenadas do mundo para tela
+     */
+    worldToScreen(x, y) {
+        return {
+            x: (x - this.viewport.offsetX) * this.viewport.scale,
+            y: (y - this.viewport.offsetY) * this.viewport.scale
+        };
+    }
+    
+    /**
+     * Transforma coordenadas da tela para mundo
+     */
+    screenToWorld(x, y) {
+        return {
+            x: x / this.viewport.scale + this.viewport.offsetX,
+            y: y / this.viewport.scale + this.viewport.offsetY
+        };
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // CLEANUP
+    // ═══════════════════════════════════════════════════════════════════
+    
+    destroy() {
+        if (this.resizeHandler) {
+            window.removeEventListener('resize', this.resizeHandler);
+        }
+        if (this.orientationHandler) {
+            if (screen.orientation) {
+                screen.orientation.removeEventListener('change', this.orientationHandler);
+            } else {
+                window.removeEventListener('orientationchange', this.orientationHandler);
+            }
+        }
     }
     
     // ═══════════════════════════════════════════════════════════════════

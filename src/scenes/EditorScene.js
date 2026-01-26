@@ -119,7 +119,10 @@ export default class EditorScene {
                 <div class="option-row" id="mouth-options"></div>
             </div>
             
-            <button id="create-pet-btn" class="neon-btn">★ CRIAR PET ★</button>
+            <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
+                <button id="randomize-pet-btn" class="neon-btn small" title="Gerar aleatoriamente">⤴ ALEATÓRIO</button>
+                <button id="create-pet-btn" class="neon-btn">★ CRIAR PET ★</button>
+            </div>
         `;
         
         document.getElementById('ui-layer').appendChild(uiContainer);
@@ -230,6 +233,18 @@ export default class EditorScene {
         createBtn.addEventListener('click', () => {
             this.onCreatePet();
         });
+
+        // Randomize button
+        const randomBtn = document.getElementById('randomize-pet-btn');
+        if (randomBtn) {
+            randomBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+            randomBtn.addEventListener('click', () => {
+                this.randomizePet();
+                // Feedback visual rápido
+                randomBtn.classList.add('pulsing');
+                setTimeout(() => randomBtn.classList.remove('pulsing'), 400);
+            });
+        }
         
         // Canvas mouse move for eye tracking
         this.canvas.addEventListener('mousemove', (e) => {
@@ -312,6 +327,44 @@ export default class EditorScene {
         setTimeout(() => {
             this.game.changeScene('home', petData);
         }, 800);
+    }
+
+    randomizePet() {
+        // Gera índices aleatórios
+        const shapeIdx = Math.floor(Math.random() * SHAPES.length);
+        const matIdx = Math.floor(Math.random() * MATERIALS.length);
+        const eyeIdx = Math.floor(Math.random() * EYES.length);
+        const mouthIdx = Math.floor(Math.random() * MOUTHS.length);
+
+        this.selection.shapeIndex = shapeIdx;
+        this.selection.materialIndex = matIdx;
+        this.selection.eyeIndex = eyeIdx;
+        this.selection.mouthIndex = mouthIdx;
+
+        // Atualiza o pet
+        if (!this.pet) {
+            this.createPet();
+        } else {
+            this.pet.shapeId = SHAPES[shapeIdx].id;
+            const mat = MATERIALS[matIdx];
+            this.pet.materialId = mat.id;
+            this.pet.primaryColor = mat.palette.glow;
+            this.pet.secondaryColor = mat.palette.core;
+            this.pet.eyeType = EYES[eyeIdx].id;
+            this.pet.mouthType = MOUTHS[mouthIdx].id;
+            this.rematerialize();
+        }
+
+        // Atualiza UI
+        this.updateSelectedButtons('shape', shapeIdx);
+        this.updateSelectedButtons('material', matIdx);
+        this.updateSelectedButtons('eye', eyeIdx);
+        this.updateSelectedButtons('mouth', mouthIdx);
+        this.updateMaterialDescription();
+
+        // Feedback sonoro / visual
+        UISoundSystem.playSelect();
+        PetVoiceSystem.playHappy();
     }
     
     // ═══════════════════════════════════════════════════════════════════

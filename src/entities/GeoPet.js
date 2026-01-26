@@ -1205,6 +1205,103 @@ export default class GeoPet {
     }
     
     // ═══════════════════════════════════════════════════════════════════
+    // GESTOS MOBILE
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Verifica se um ponto está dentro do pet (hit test)
+     */
+    containsPoint(x, y) {
+        const dx = x - this.x;
+        const dy = y - this.y;
+        const radius = this.size * this.scale;
+        return dx * dx + dy * dy <= radius * radius;
+    }
+    
+    /**
+     * Aplica rotação por gesto de arrastar
+     * @param {number} deltaAngle - Mudança de ângulo em radianos
+     */
+    applyRotation(deltaAngle) {
+        this.rotation += deltaAngle;
+        
+        // Normaliza para 0-2PI
+        while (this.rotation < 0) this.rotation += Math.PI * 2;
+        while (this.rotation > Math.PI * 2) this.rotation -= Math.PI * 2;
+    }
+    
+    /**
+     * Calcula ângulo de rotação baseado em posição de arrasto
+     */
+    getRotationFromDrag(startX, startY, currentX, currentY) {
+        const startAngle = Math.atan2(startY - this.y, startX - this.x);
+        const currentAngle = Math.atan2(currentY - this.y, currentX - this.x);
+        return currentAngle - startAngle;
+    }
+    
+    /**
+     * Petting por scrubbing (movimento rápido repetido)
+     * @param {number} intensity - Intensidade do scrub (0-1)
+     */
+    onScrub(intensity) {
+        // Quanto maior a intensidade, mais feliz
+        const happinessGain = Math.floor(5 + intensity * 15);
+        this.happiness = Math.min(100, this.happiness + happinessGain);
+        
+        this.isBeingPetted = true;
+        this.lastPetTime = Date.now();
+        
+        // Expressão de alegria
+        this.expressionState.action = 'love';
+        this.expressionState.actionTimer = Date.now() + 500;
+        
+        // Squash proporcional à intensidade
+        const squashAmount = 0.85 + intensity * 0.1;
+        this.squash(squashAmount, 2 - squashAmount);
+        
+        // Reset após um tempo
+        setTimeout(() => {
+            this.isBeingPetted = false;
+        }, 300);
+    }
+    
+    /**
+     * Reação a tap/toque único
+     */
+    onTap() {
+        // Pequena reação de atenção
+        this.faceTargets.eyeOpenness = 1.3;
+        this.squash(0.95, 1.05);
+        
+        // Vira para "olhar" o toque
+        this.expressionState.action = 'alert';
+        this.expressionState.actionTimer = Date.now() + 500;
+    }
+    
+    /**
+     * Reação a double tap
+     */
+    onDoubleTap() {
+        // Pulo de alegria
+        this.squash(0.7, 1.4);
+        this.vy = -3;
+        
+        this.happiness = Math.min(100, this.happiness + 5);
+        this.expressionState.action = 'happy';
+        this.expressionState.actionTimer = Date.now() + 800;
+    }
+    
+    /**
+     * Reação a long press
+     */
+    onLongPress() {
+        // Pet fica sonolento/relaxado
+        this.faceTargets.eyeOpenness = 0.5;
+        this.expressionState.mood = 'neutral';
+        this.squash(1.1, 0.9);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
     // SERIALIZAÇÃO
     // ═══════════════════════════════════════════════════════════════════
     
