@@ -663,7 +663,9 @@ export default class HomeScene {
     
     goToEditor() {
         UISoundSystem.playClose();
-        this.game.changeScene('editor');
+        // Passa os dados do pet atual para manter a aparência no editor
+        const petData = this.pet.toJSON();
+        this.game.changeScene('editor', petData);
     }
     
     showHint(text) {
@@ -1048,6 +1050,7 @@ export default class HomeScene {
     updateDialogueBubble() {
         let bubble = document.getElementById('dialogue-bubble');
         const dialogue = this.pet.getDialogue();
+        const isTyping = this.pet.isTyping();
         
         if (dialogue) {
             if (!bubble) {
@@ -1057,20 +1060,39 @@ export default class HomeScene {
                 document.getElementById('game-container').appendChild(bubble);
             }
             
-            bubble.textContent = dialogue;
+            // Adiciona cursor piscando se ainda está digitando
+            bubble.textContent = isTyping ? dialogue + '█' : dialogue;
+            bubble.classList.toggle('typing', isTyping);
             bubble.style.display = 'block';
             
-            // Posiciona acima do pet (ajusta para escala do canvas)
+            // Posição relativa ao canvas (que está dentro do container)
             const canvasRect = this.canvas.getBoundingClientRect();
+            const containerRect = document.getElementById('game-container').getBoundingClientRect();
+            
+            // Escala entre coordenadas lógicas e pixels renderizados
             const scaleX = canvasRect.width / this.canvas.width;
             const scaleY = canvasRect.height / this.canvas.height;
             
-            // Converte coordenadas do canvas para coordenadas da tela
-            const screenX = this.pet.x * scaleX;
-            const screenY = this.pet.y * scaleY;
+            // Posição do pet em pixels do canvas
+            const petCanvasX = this.pet.x * scaleX;
+            const petCanvasY = this.pet.y * scaleY;
             
-            bubble.style.left = `${screenX}px`;
-            bubble.style.top = `${screenY - this.pet.size * scaleY * 2 - 30}px`;
+            // Offset do canvas dentro do container
+            const canvasOffsetX = canvasRect.left - containerRect.left;
+            const canvasOffsetY = canvasRect.top - containerRect.top;
+            
+            // Posição final relativa ao container
+            const petX = canvasOffsetX + petCanvasX;
+            const petY = canvasOffsetY + petCanvasY;
+            
+            // Topo da cabeça (centro - raio)
+            const petRadius = this.pet.size * scaleY;
+            const headTop = petY - petRadius;
+            
+            // Balão grudado na cabeça
+            bubble.style.left = `${petX}px`;
+            bubble.style.top = `${headTop - 5}px`;
+            bubble.style.transform = 'translate(-50%, -100%)';
         } else if (bubble) {
             bubble.style.display = 'none';
         }

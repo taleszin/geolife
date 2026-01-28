@@ -42,7 +42,15 @@ export default class EditorScene {
     // LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════
     
-    init() {
+    init(petData = null) {
+        // Guarda dados do pet se estiver editando
+        this.editingPetData = petData;
+        
+        // Se editando, configura seleções baseadas no pet existente
+        if (petData) {
+            this.setupSelectionsFromPetData(petData);
+        }
+        
         // Inicializa sistemas de áudio
         UISoundSystem.init();
         PetVoiceSystem.init();
@@ -54,6 +62,23 @@ export default class EditorScene {
         
         // Som de abertura
         UISoundSystem.playOpen();
+    }
+    
+    /**
+     * Configura as seleções baseadas nos dados do pet existente
+     */
+    setupSelectionsFromPetData(petData) {
+        // Encontra índices baseado nos IDs do pet
+        const shapeIdx = SHAPES.findIndex(s => s.id === petData.shapeId);
+        const materialIdx = MATERIALS.findIndex(m => m.id === petData.materialId);
+        const eyeIdx = EYES.findIndex(e => e.id === petData.eyeType);
+        const mouthIdx = MOUTHS.findIndex(m => m.id === petData.mouthType);
+        
+        // Aplica se encontrou, senão mantém default (0)
+        if (shapeIdx >= 0) this.selection.shapeIndex = shapeIdx;
+        if (materialIdx >= 0) this.selection.materialIndex = materialIdx;
+        if (eyeIdx >= 0) this.selection.eyeIndex = eyeIdx;
+        if (mouthIdx >= 0) this.selection.mouthIndex = mouthIdx;
     }
     
     destroy() {
@@ -107,6 +132,11 @@ export default class EditorScene {
                     <span class="material-name"></span>
                     <span class="material-text"></span>
                 </div>
+            </div>
+            
+            <div class="editor-section">
+                <h3>CONTORNO <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="border-color-btn" title="Cor do contorno neon"></button> <button class="color-reset-btn" id="border-color-reset" title="Resetar cor">✕</button><input type="color" id="border-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
+                <p class="section-hint">Cor do contorno neon do seu pet</p>
             </div>
             
             <div class="editor-section">
@@ -271,6 +301,11 @@ export default class EditorScene {
         const mouthColorBtn = document.getElementById('mouth-color-btn');
         const mouthColorInput = document.getElementById('mouth-color-input');
         const mouthColorReset = document.getElementById('mouth-color-reset');
+        
+        // Botão de cor da borda/contorno neon
+        const borderColorBtn = document.getElementById('border-color-btn');
+        const borderColorInput = document.getElementById('border-color-input');
+        const borderColorReset = document.getElementById('border-color-reset');
 
         // Clique no botão arco-íris: dispara o seletor nativo imediatamente
         if (eyeColorBtn && eyeColorInput) {
@@ -313,6 +348,28 @@ export default class EditorScene {
                 if (this.pet) this.pet.mouthColor = null;
                 if (mouthColorBtn) mouthColorBtn.style.background = '';
                 if (mouthColorInput) mouthColorInput.value = this.pet ? this.pet.secondaryColor || '#00ffff' : '#00ffff';
+            });
+        }
+        
+        // Borda/Contorno: mesma lógica
+        if (borderColorBtn && borderColorInput) {
+            borderColorBtn.addEventListener('click', () => {
+                UISoundSystem.playSelect();
+                borderColorInput.click();
+            });
+
+            borderColorInput.addEventListener('input', (e) => {
+                if (this.pet) this.pet.borderColor = e.target.value;
+                borderColorBtn.style.background = e.target.value;
+            });
+        }
+
+        if (borderColorReset) {
+            borderColorReset.addEventListener('click', () => {
+                UISoundSystem.playSelect();
+                if (this.pet) this.pet.borderColor = null;
+                if (borderColorBtn) borderColorBtn.style.background = '';
+                if (borderColorInput) borderColorInput.value = this.pet ? this.pet.primaryColor || '#00ffff' : '#00ffff';
             });
         }
     }
@@ -436,7 +493,8 @@ export default class EditorScene {
     createPet() {
         const material = MATERIALS[this.selection.materialIndex];
         
-        this.pet = new GeoPet({
+        // Dados base do pet
+        const petConfig = {
             x: this.canvas.width / 2,
             y: this.canvas.height / 2,
             size: 50,
@@ -448,7 +506,16 @@ export default class EditorScene {
             // Cores legadas para compatibilidade
             primaryColor: material.palette.glow,
             secondaryColor: material.palette.core
-        });
+        };
+        
+        // Se editando um pet existente, preserva cores customizadas e borderColor
+        if (this.editingPetData) {
+            if (this.editingPetData.eyeColor) petConfig.eyeColor = this.editingPetData.eyeColor;
+            if (this.editingPetData.mouthColor) petConfig.mouthColor = this.editingPetData.mouthColor;
+            if (this.editingPetData.borderColor) petConfig.borderColor = this.editingPetData.borderColor;
+        }
+        
+        this.pet = new GeoPet(petConfig);
         
         // Inicia materialização cyber-alquímica
         this.startMaterialization();
@@ -458,11 +525,15 @@ export default class EditorScene {
         const eyeBtn = document.getElementById('eye-color-btn');
         const mouthInput = document.getElementById('mouth-color-input');
         const mouthBtn = document.getElementById('mouth-color-btn');
+        const borderInput = document.getElementById('border-color-input');
+        const borderBtn = document.getElementById('border-color-btn');
 
         if (eyeInput) eyeInput.value = this.pet.eyeColor || this.pet.secondaryColor || '#00ffff';
         if (eyeBtn) eyeBtn.style.background = this.pet.eyeColor || '';
         if (mouthInput) mouthInput.value = this.pet.mouthColor || this.pet.secondaryColor || '#00ffff';
         if (mouthBtn) mouthBtn.style.background = this.pet.mouthColor || '';
+        if (borderInput) borderInput.value = this.pet.borderColor || this.pet.primaryColor || '#00ffff';
+        if (borderBtn) borderBtn.style.background = this.pet.borderColor || '';
     }
     
     /**

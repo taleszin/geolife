@@ -60,10 +60,11 @@ export default class GeoPet {
         
         // ═══════════════════════════════════════════════════════════════════
         // CORES CUSTOMIZÁVEIS (Sistema Arco-Íris)
-        // Permite cores independentes para olhos e boca
+        // Permite cores independentes para olhos, boca e borda neon
         // ═══════════════════════════════════════════════════════════════════
         this.eyeColor = config.eyeColor || null;     // null = usa secondaryColor
         this.mouthColor = config.mouthColor || null; // null = usa secondaryColor
+        this.borderColor = config.borderColor || null; // null = usa primaryColor (cor do glow)
         
         // ═══════════════════════════════════════════════════════════════════
         // POSIÇÃO E TRANSFORMAÇÕES
@@ -87,15 +88,15 @@ export default class GeoPet {
         // ═══════════════════════════════════════════════════════════════════
         // STATS DO TAMAGOTCHI
         // ═══════════════════════════════════════════════════════════════════
-        this.hunger = config.hunger ?? 100;     // 0-100 (fome)
-        this.happiness = config.happiness ?? 80; // 0-100 (felicidade)  
-        this.energy = config.energy ?? 100;      // 0-100 (energia)
+        this.hunger = config.hunger ?? 75;      // 0-100 (fome) - começa em 75%
+        this.happiness = config.happiness ?? 70; // 0-100 (felicidade) - começa em 70%
+        this.energy = config.energy ?? 80;       // 0-100 (energia) - começa em 80%
         
-        // Taxas de decaimento (por segundo)
+        // Taxas de decaimento (por segundo) - aumentadas para maior diversidade de humor
         this.decayRates = {
-            hunger: 0.5,    // Perde 0.5 de fome por segundo
-            happiness: 0.2, // Perde 0.2 de felicidade por segundo
-            energy: 0.1     // Perde 0.1 de energia por segundo
+            hunger: 1.2,    // Perde 1.2 de fome por segundo (antes: 0.5)
+            happiness: 0.5, // Perde 0.5 de felicidade por segundo (antes: 0.2)
+            energy: 0.3     // Perde 0.3 de energia por segundo (antes: 0.1)
         };
         
         // ═══════════════════════════════════════════════════════════════════
@@ -267,26 +268,26 @@ export default class GeoPet {
         const avg = (h + hp + e) / 3;
         
         // Prioridade 1: Estados críticos
-        if (avg < 15) return MOOD_TYPES.DYING;
+        if (avg < 20) return MOOD_TYPES.DYING;
         
         // Prioridade 2: Maltratado recentemente
         if (this.recentMistreatment >= 3) return MOOD_TYPES.ANGRY;
         
-        // Prioridade 3: Estados de necessidade específica
-        if (h < 25 && hp > 40) return MOOD_TYPES.HUNGRY;
-        if (e < 25 && hp > 40) return MOOD_TYPES.TIRED;
+        // Prioridade 3: Estados de necessidade específica (ajustados para aparecer mais cedo)
+        if (h < 35 && hp > 35) return MOOD_TYPES.HUNGRY;
+        if (e < 35 && hp > 35) return MOOD_TYPES.TIRED;
         
         // Prioridade 4: Estados emocionais
-        if (hp < 30) return MOOD_TYPES.SAD;
+        if (hp < 40) return MOOD_TYPES.SAD;
         
-        // Prioridade 5: Estados positivos
-        if (avg > 85) return MOOD_TYPES.ECSTATIC;
-        if (avg > 70) return MOOD_TYPES.HAPPY;
-        if (avg > 55) return MOOD_TYPES.CONTENT;
+        // Prioridade 5: Estados positivos (thresholds ajustados)
+        if (avg > 80) return MOOD_TYPES.ECSTATIC;
+        if (avg > 65) return MOOD_TYPES.HAPPY;
+        if (avg > 50) return MOOD_TYPES.CONTENT;
         
         // Prioridade 6: Estados especiais
-        if (e > 70 && hp < 50) return MOOD_TYPES.THOUGHTFUL;
-        if (e < 40 && hp > 50 && h > 50) return MOOD_TYPES.BORED;
+        if (e > 60 && hp < 55) return MOOD_TYPES.THOUGHTFUL;
+        if (e < 45 && hp > 45 && h > 45) return MOOD_TYPES.BORED;
         
         // Estados de confusão (stats muito desbalanceados)
         const variance = Math.abs(h - hp) + Math.abs(hp - e) + Math.abs(e - h);
@@ -318,8 +319,25 @@ export default class GeoPet {
     
     /**
      * Retorna o label do humor atual para exibição na UI
+     * Considera ações temporárias (shocked, frozen, etc) antes do humor base
      */
     getMoodLabel() {
+        // Se há uma ação temporária ativa, mostra ela ao invés do humor base
+        if (this.expressionState.action && Date.now() < this.expressionState.actionTimer) {
+            const actionLabels = {
+                'shocked': '⚡ Chocado!',
+                'frozen': '❄️ Congelado',
+                'mutating': '🔮 Mutando',
+                'tickled': '😂 Risada',
+                'eating': '😋 Comendo',
+                'love': '💕 Amado',
+                'surprised': '😮 Surpreso',
+                'alert': '👀 Alerta',
+                'healed': '💚 Curado'
+            };
+            return actionLabels[this.expressionState.action] || MOOD_LABELS[this.currentMood];
+        }
+        
         return MOOD_LABELS[this.currentMood] || '😐 Neutro';
     }
     
@@ -819,8 +837,12 @@ export default class GeoPet {
             // Usa o MaterialRenderer para preencher
             materialRenderer.fill(renderer, this.x, cy, circlePoints, this.materialId);
             
-            // Borda com material
-            materialRenderer.stroke(renderer, circlePoints, this.materialId);
+            // Borda com material (ou cor customizada se definida)
+            if (this.borderColor) {
+                this.drawCustomNeonBorder(renderer, circlePoints);
+            } else {
+                materialRenderer.stroke(renderer, circlePoints, this.materialId);
+            }
             
         } else if (params.type === 'polygon') {
             // Transforma vértices
@@ -829,9 +851,41 @@ export default class GeoPet {
                 y: cy + v.y * scaleY / this.scale
             }));
             
-            // Usa o MaterialRenderer para preencher e contornar
+            // Usa o MaterialRenderer para preencher
             materialRenderer.fill(renderer, this.x, cy, transformed, this.materialId);
-            materialRenderer.stroke(renderer, transformed, this.materialId);
+            
+            // Borda com material (ou cor customizada se definida)
+            if (this.borderColor) {
+                this.drawCustomNeonBorder(renderer, transformed);
+            } else {
+                materialRenderer.stroke(renderer, transformed, this.materialId);
+            }
+        }
+    }
+    
+    /**
+     * Desenha borda neon customizada com a cor borderColor
+     */
+    drawCustomNeonBorder(renderer, points) {
+        const { r, g, b } = renderer.hexToRgb(this.borderColor);
+        const n = points.length;
+        
+        // Múltiplas camadas para efeito glow neon
+        for (let layer = 4; layer >= 0; layer--) {
+            const alpha = layer === 0 ? 255 : Math.floor(80 * (1 - layer / 5));
+            
+            for (let i = 0; i < n; i++) {
+                const v1 = points[i];
+                const v2 = points[(i + 1) % n];
+                
+                if (layer > 0) {
+                    // Linhas com espessura para glow
+                    this.drawThickLineRgba(renderer, v1.x, v1.y, v2.x, v2.y, r, g, b, alpha, layer);
+                } else {
+                    // Linha principal
+                    this.drawLineRgba(renderer, v1.x, v1.y, v2.x, v2.y, r, g, b, alpha);
+                }
+            }
         }
     }
     
@@ -2223,6 +2277,7 @@ export default class GeoPet {
             secondaryColor: this.secondaryColor,
             eyeColor: this.eyeColor,
             mouthColor: this.mouthColor,
+            borderColor: this.borderColor,
             hunger: this.hunger,
             happiness: this.happiness,
             energy: this.energy
