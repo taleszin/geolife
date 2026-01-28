@@ -1056,3 +1056,267 @@ button,
         border-width: 3px;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   NEW INTERACTIONS UI - Stats e Botões de Ação
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Barras de stats adicionais */
+.stat-fill.happiness {
+    background: #ff69b4;
+}
+
+.stat-fill.energy {
+    background: #00ffff;
+}
+
+/* Seção de ações de caos */
+.home-actions-chaos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: rgba(255, 50, 50, 0.1);
+    border: 1px solid rgba(255, 100, 100, 0.3);
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.chaos-label {
+    font-size: 6px;
+    color: #ff6666;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+/* Botões de ação positiva */
+.action-btn.positive {
+    border-color: var(--neon-green);
+    color: var(--neon-green);
+}
+
+.action-btn.positive:hover {
+    background: rgba(0, 255, 136, 0.15);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+}
+
+/* Botões de ação perigosa */
+.action-btn.danger {
+    border-color: #ff6666;
+    color: #ff6666;
+}
+
+.action-btn.danger:hover {
+    background: rgba(255, 100, 100, 0.15);
+    box-shadow: 0 0 20px rgba(255, 100, 100, 0.4);
+    border-color: #ff4444;
+    color: #ff4444;
+}
+
+/* Seção de ações secundárias */
+.home-actions-secondary {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCREEN EFFECTS - Efeitos visuais de tela
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Efeito de choque */
+#game-container.effect-shock {
+    animation: shock-shake 0.1s ease-in-out infinite, shock-tint 2s ease-out;
+}
+
+@keyframes shock-shake {
+    0%, 100% { transform: translate(-50%, -50%) translate(0, 0); }
+    10% { transform: translate(-50%, -50%) translate(-5px, -3px); }
+    20% { transform: translate(-50%, -50%) translate(5px, 3px); }
+    30% { transform: translate(-50%, -50%) translate(-3px, 5px); }
+    40% { transform: translate(-50%, -50%) translate(3px, -5px); }
+    50% { transform: translate(-50%, -50%) translate(-5px, 3px); }
+    60% { transform: translate(-50%, -50%) translate(5px, -3px); }
+    70% { transform: translate(-50%, -50%) translate(-3px, -5px); }
+    80% { transform: translate(-50%, -50%) translate(3px, 5px); }
+    90% { transform: translate(-50%, -50%) translate(-5px, -3px); }
+}
+
+@keyframes shock-tint {
+    0% { 
+        box-shadow: 
+            0 0 30px rgba(255, 255, 0, 0.8),
+            inset 0 0 50px rgba(255, 255, 0, 0.3);
+        filter: brightness(1.5) saturate(1.3);
+    }
+    100% { 
+        box-shadow: 
+            0 0 20px var(--cyan-dim),
+            inset 0 0 20px rgba(0, 0, 0, 0.5);
+        filter: brightness(1) saturate(1);
+    }
+}
+
+/* Efeito de congelamento */
+#game-container.effect-freeze {
+    animation: freeze-tint 4s ease-out;
+}
+
+@keyframes freeze-tint {
+    0% { 
+        box-shadow: 
+            0 0 40px rgba(100, 200, 255, 0.6),
+            inset 0 0 60px rgba(100, 200, 255, 0.2);
+        filter: hue-rotate(-20deg) brightness(1.1);
+    }
+    50% {
+        box-shadow: 
+            0 0 30px rgba(100, 200, 255, 0.4),
+            inset 0 0 40px rgba(100, 200, 255, 0.15);
+    }
+    100% { 
+        box-shadow: 
+            0 0 20px var(--cyan-dim),
+            inset 0 0 20px rgba(0, 0, 0, 0.5);
+        filter: hue-rotate(0deg) brightness(1);
+    }
+}
+
+/* Efeito de mutação */
+#game-container.effect-mutate {
+    animation: mutate-glitch 3s ease-out;
+}
+
+@keyframes mutate-glitch {
+    0% { 
+        box-shadow: 
+            0 0 40px rgba(255, 0, 255, 0.8),
+            inset 0 0 50px rgba(255, 0, 255, 0.3);
+        filter: hue-rotate(0deg);
+    }
+    10% { filter: hue-rotate(30deg); }
+    20% { filter: hue-rotate(-20deg); }
+    30% { filter: hue-rotate(45deg); }
+    40% { filter: hue-rotate(-30deg); }
+    50% { 
+        box-shadow: 
+            0 0 30px rgba(255, 0, 255, 0.5),
+            inset 0 0 30px rgba(255, 0, 255, 0.2);
+        filter: hue-rotate(60deg); 
+    }
+    60% { filter: hue-rotate(-40deg); }
+    70% { filter: hue-rotate(20deg); }
+    80% { filter: hue-rotate(-10deg); }
+    90% { filter: hue-rotate(5deg); }
+    100% { 
+        box-shadow: 
+            0 0 20px var(--cyan-dim),
+            inset 0 0 20px rgba(0, 0, 0, 0.5);
+        filter: hue-rotate(0deg);
+    }
+}
+
+/* Efeito de cura */
+#game-container.effect-heal {
+    animation: heal-glow 1s ease-out;
+}
+
+@keyframes heal-glow {
+    0% { 
+        box-shadow: 
+            0 0 60px rgba(0, 255, 136, 0.8),
+            inset 0 0 80px rgba(0, 255, 136, 0.4);
+        filter: brightness(1.3);
+    }
+    50% {
+        box-shadow: 
+            0 0 40px rgba(0, 255, 136, 0.5),
+            inset 0 0 50px rgba(0, 255, 136, 0.2);
+    }
+    100% { 
+        box-shadow: 
+            0 0 20px var(--cyan-dim),
+            inset 0 0 20px rgba(0, 0, 0, 0.5);
+        filter: brightness(1);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DIALOGUE BUBBLE - Variações por emoção
+   ═══════════════════════════════════════════════════════════════════ */
+
+.dialogue-bubble.shocked {
+    border-color: #ffff00;
+    box-shadow: 0 0 15px rgba(255, 255, 0, 0.5);
+    animation: bubble-pop 0.3s ease-out, bubble-shake 0.1s infinite;
+}
+
+.dialogue-bubble.frozen {
+    border-color: #88ddff;
+    box-shadow: 0 0 15px rgba(136, 221, 255, 0.5);
+    animation: bubble-pop 0.3s ease-out;
+}
+
+.dialogue-bubble.tickled {
+    border-color: #ffaa00;
+    box-shadow: 0 0 15px rgba(255, 170, 0, 0.5);
+    animation: bubble-pop 0.3s ease-out, bubble-bounce 0.2s infinite;
+}
+
+@keyframes bubble-shake {
+    0%, 100% { transform: translateX(-50%) rotate(0deg); }
+    25% { transform: translateX(-50%) rotate(-2deg); }
+    75% { transform: translateX(-50%) rotate(2deg); }
+}
+
+@keyframes bubble-bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-5px); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVO - Ações de interação
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 800px) {
+    .home-actions-chaos {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .chaos-label {
+        width: 100%;
+    }
+    
+    .home-actions-secondary {
+        flex-direction: row;
+        justify-content: center;
+    }
+    
+    .action-btn {
+        flex: 1;
+        min-width: 80px;
+        font-size: 6px;
+        padding: 10px 8px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COOLDOWN VISUAL - Botões desabilitados durante cooldown
+   ═══════════════════════════════════════════════════════════════════ */
+
+.action-btn[disabled],
+.action-btn.on-cooldown {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.action-btn.on-cooldown::after {
+    content: '⏱️';
+    margin-left: 5px;
+}

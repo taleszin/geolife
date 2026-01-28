@@ -231,6 +231,54 @@ export default class GeoPet {
             case 'surprised':
                 target = { open: 1.3, curve: 0.1, brow: 0.5, pupil: 0.6, tremor: 0.2 };
                 break;
+            // ═══ NOVOS ESTADOS ═══
+            case 'shocked':
+                // Olhos arregalados, boca aberta de dor, tremendo muito
+                const shockPulse = Math.sin(Date.now() * 0.02);
+                target = { 
+                    open: 1.4 + shockPulse * 0.2, 
+                    curve: -0.8, 
+                    brow: 0.8, 
+                    pupil: 0.5 + shockPulse * 0.3, 
+                    tremor: 1 
+                };
+                break;
+            case 'frozen':
+                // Olhos semi-fechados, boca tremendo, corpo encolhido
+                const freezeTremble = Math.sin(Date.now() * 0.03);
+                target = { 
+                    open: 0.6, 
+                    curve: freezeTremble * 0.2, 
+                    brow: 0.3, 
+                    pupil: 0.8, 
+                    tremor: 0.8 
+                };
+                break;
+            case 'mutating':
+                // Olhos de confusão, expressão instável
+                const glitchPhase = Date.now() * 0.025;
+                target = { 
+                    open: 0.8 + Math.sin(glitchPhase) * 0.4, 
+                    curve: Math.sin(glitchPhase * 1.3) * 0.5, 
+                    brow: Math.cos(glitchPhase) * 0.5, 
+                    pupil: 0.7 + Math.sin(glitchPhase * 2) * 0.3, 
+                    tremor: 0.5 
+                };
+                break;
+            case 'tickled':
+                // Olhos apertados de risada, sorriso máximo
+                const laughPhase = Math.sin(Date.now() * 0.02);
+                target = { 
+                    open: 0.3 + Math.abs(laughPhase) * 0.3, 
+                    curve: 0.9 + laughPhase * 0.1, 
+                    brow: -0.4, 
+                    pupil: 1.2, 
+                    tremor: 0.3 
+                };
+                break;
+            case 'alert':
+                target = { open: 1.2, curve: 0.2, brow: -0.1, pupil: 0.9, tremor: 0 };
+                break;
         }
         
         // Interpolação suave (Lerp)
@@ -1176,6 +1224,141 @@ export default class GeoPet {
         this.energy = Math.min(100, this.energy + 30);
         this.expressionState.action = null;
         this.expressionState.mood = 'neutral';
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // NOVAS INTERAÇÕES
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Aplica choque elétrico no pet
+     * Reduz felicidade e energia, expressão de dor/choque
+     */
+    shock() {
+        this.happiness = Math.max(0, this.happiness - 20);
+        this.energy = Math.max(0, this.energy - 15);
+        
+        this.expressionState.action = 'shocked';
+        this.expressionState.actionTimer = Date.now() + 2000;
+        
+        // Squash de choque
+        this.squash(1.3, 0.7);
+        
+        // Faz tremer
+        this.faceTargets.tremor = 1;
+        
+        return 'shocked';
+    }
+    
+    /**
+     * Congela o pet
+     * Reduz energia drasticamente, pet fica parado tremendo
+     */
+    freeze() {
+        this.energy = Math.max(0, this.energy - 25);
+        this.happiness = Math.max(0, this.happiness - 10);
+        
+        this.expressionState.action = 'frozen';
+        this.expressionState.actionTimer = Date.now() + 4000;
+        
+        // Face de frio
+        this.faceTargets.tremor = 0.8;
+        
+        // Squash de encolher de frio
+        this.squash(0.9, 0.9);
+        
+        return 'frozen';
+    }
+    
+    /**
+     * Muta o pet para outra forma geométrica
+     * Retorna a forma original após um tempo
+     * @param {string} newShape - Nova forma (ou null para aleatório)
+     * @param {number} duration - Duração da mutação em ms
+     */
+    mutate(newShape = null, duration = 3000) {
+        this.originalShapeId = this.originalShapeId || this.shapeId;
+        
+        // Se não especificou, escolhe aleatoriamente
+        const shapes = ['triangulo', 'quadrado', 'hexagono', 'losango', 'estrela', 'circulo'];
+        const availableShapes = shapes.filter(s => s !== this.shapeId);
+        const targetShape = newShape || availableShapes[Math.floor(Math.random() * availableShapes.length)];
+        
+        this.shapeId = targetShape;
+        
+        this.happiness = Math.max(0, this.happiness - 15);
+        
+        this.expressionState.action = 'mutating';
+        this.expressionState.actionTimer = Date.now() + duration;
+        
+        // Squash de transformação
+        this.squash(0.5, 1.5);
+        
+        // Agenda reversão
+        this.mutationTimeout = setTimeout(() => {
+            this.revertMutation();
+        }, duration);
+        
+        return { original: this.originalShapeId, mutated: targetShape };
+    }
+    
+    /**
+     * Reverte a mutação para forma original
+     */
+    revertMutation() {
+        if (this.originalShapeId) {
+            this.shapeId = this.originalShapeId;
+            this.originalShapeId = null;
+            
+            this.expressionState.action = 'surprised';
+            this.expressionState.actionTimer = Date.now() + 1000;
+            
+            this.squash(1.2, 0.8);
+        }
+        
+        if (this.mutationTimeout) {
+            clearTimeout(this.mutationTimeout);
+            this.mutationTimeout = null;
+        }
+    }
+    
+    /**
+     * Faz cócegas no pet
+     * Aumenta felicidade, pet ri e se mexe muito
+     */
+    tickle() {
+        this.happiness = Math.min(100, this.happiness + 15);
+        this.energy = Math.max(0, this.energy - 5); // Cansa um pouco
+        
+        this.expressionState.action = 'tickled';
+        this.expressionState.actionTimer = Date.now() + 2000;
+        
+        // Squash de risada
+        this.squash(1.15, 0.85);
+        
+        // Movimentos aleatórios de risada
+        this.vx = (Math.random() - 0.5) * 3;
+        this.vy = (Math.random() - 0.5) * 3;
+        
+        return 'tickled';
+    }
+    
+    /**
+     * Cura/restaura o pet
+     * Aumenta todos os stats
+     */
+    heal(amount = 30) {
+        this.hunger = Math.min(100, this.hunger + amount);
+        this.happiness = Math.min(100, this.happiness + amount * 0.5);
+        this.energy = Math.min(100, this.energy + amount);
+        
+        this.expressionState.action = 'love';
+        this.expressionState.actionTimer = Date.now() + 1500;
+        
+        // Squash de alegria
+        this.squash(0.85, 1.15);
+        
+        return 'healed';
     }
     
     squash(sx, sy) {

@@ -69,7 +69,11 @@ class PetVoiceSystemClass {
             dying: { freqMult: 0.6, speedMult: 0.5, volume: 0.4 },
             eating: { freqMult: 1.1, speedMult: 1.4, volume: 0.9 },
             love: { freqMult: 1.3, speedMult: 1.1, volume: 1.0 },
-            surprised: { freqMult: 1.5, speedMult: 1.5, volume: 1.0 }
+            surprised: { freqMult: 1.5, speedMult: 1.5, volume: 1.0 },
+            shocked: { freqMult: 1.8, speedMult: 2.0, volume: 1.2 },
+            frozen: { freqMult: 0.7, speedMult: 0.5, volume: 0.5 },
+            mutating: { freqMult: 1.0, speedMult: 1.3, volume: 0.9 },
+            tickled: { freqMult: 1.4, speedMult: 1.6, volume: 1.1 }
         };
     }
     
@@ -295,6 +299,49 @@ class PetVoiceSystemClass {
                 // "Zzz..." suave
                 this._generateSyllable(baseFreq * 0.5, 'sine', 0.3, t, 0.04, 0.02);
                 this._generateSyllable(baseFreq * 0.4, 'sine', 0.4, t + 0.5, 0.03, 0.02);
+                break;
+                
+            case 'pain':
+                // "AAAH!" - grito de dor/choque
+                this._generateSyllable(baseFreq * 2.0, 'sawtooth', 0.08, t, 0.18, 0.4);
+                this._generateSyllable(baseFreq * 1.8, 'sawtooth', 0.1, t + 0.1, 0.15, 0.3);
+                this._generateSyllable(baseFreq * 1.5, profile.waveform, 0.15, t + 0.22, 0.10, 0.2);
+                break;
+                
+            case 'laugh':
+                // "Ha ha ha!" - risada
+                for (let i = 0; i < 5; i++) {
+                    const laughFreq = baseFreq * (1.2 + (i % 2) * 0.2);
+                    this._generateSyllable(
+                        laughFreq, 
+                        profile.waveform, 
+                        0.06, 
+                        t + i * 0.09, 
+                        0.12 - i * 0.015, 
+                        0.15
+                    );
+                }
+                break;
+                
+            case 'shiver':
+                // "Brrr..." - tremendo de frio
+                for (let i = 0; i < 6; i++) {
+                    this._generateSyllable(
+                        baseFreq * (0.7 + Math.random() * 0.1), 
+                        'triangle', 
+                        0.05, 
+                        t + i * 0.08, 
+                        0.06, 
+                        0.3
+                    );
+                }
+                break;
+                
+            case 'confused':
+                // "Huh??" - confusão/mutação
+                this._generateSyllable(baseFreq * 0.9, profile.waveform, 0.1, t, 0.1, 0.1);
+                this._generateSyllable(baseFreq * 1.4, profile.waveform, 0.08, t + 0.15, 0.12, 0.2);
+                this._generateSyllable(baseFreq * 1.6, profile.waveform, 0.12, t + 0.25, 0.08, 0.25);
                 break;
                 
             default:

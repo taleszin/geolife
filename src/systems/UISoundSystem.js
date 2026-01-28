@@ -340,6 +340,224 @@ class UISoundSystemClass {
             osc.stop(start + 0.2);
         });
     }
+    
+    /**
+     * Som de SHOCK - Choque elétrico
+     */
+    playShock() {
+        if (!this.ensureContext()) return;
+        
+        const ctx = this.audioContext;
+        const t = ctx.currentTime;
+        
+        // Oscilador 1 - Zap principal
+        const osc1 = ctx.createOscillator();
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(800, t);
+        osc1.frequency.exponentialRampToValueAtTime(100, t + 0.3);
+        
+        // Oscilador 2 - Crackle
+        const osc2 = ctx.createOscillator();
+        osc2.type = 'square';
+        osc2.frequency.setValueAtTime(400, t);
+        osc2.frequency.exponentialRampToValueAtTime(50, t + 0.3);
+        
+        const gain1 = ctx.createGain();
+        gain1.gain.setValueAtTime(0.15, t);
+        gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        
+        const gain2 = ctx.createGain();
+        gain2.gain.setValueAtTime(0.08, t);
+        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        
+        // Filtro para dar efeito elétrico
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1000;
+        filter.Q.value = 5;
+        
+        osc1.connect(gain1);
+        osc2.connect(gain2);
+        gain1.connect(filter);
+        gain2.connect(filter);
+        filter.connect(this.masterGain);
+        
+        osc1.start(t);
+        osc2.start(t);
+        osc1.stop(t + 0.35);
+        osc2.stop(t + 0.3);
+    }
+    
+    /**
+     * Som de FREEZE - Congelamento
+     */
+    playFreeze() {
+        if (!this.ensureContext()) return;
+        
+        const ctx = this.audioContext;
+        const t = ctx.currentTime;
+        
+        // Tom descendente "gelado"
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, t);
+        osc.frequency.exponentialRampToValueAtTime(200, t + 0.8);
+        
+        // Segundo oscilador para criar "cristalização"
+        const osc2 = ctx.createOscillator();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(1500, t);
+        osc2.frequency.exponentialRampToValueAtTime(100, t + 1);
+        
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.1, t + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 1);
+        
+        const gain2 = ctx.createGain();
+        gain2.gain.setValueAtTime(0, t);
+        gain2.gain.linearRampToValueAtTime(0.05, t + 0.1);
+        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+        
+        // Filtro passa-alta para som "frio"
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 800;
+        filter.Q.value = 5;
+        
+        osc.connect(gain);
+        osc2.connect(gain2);
+        gain.connect(filter);
+        gain2.connect(filter);
+        filter.connect(this.masterGain);
+        
+        osc.start(t);
+        osc2.start(t);
+        osc.stop(t + 1.1);
+        osc2.stop(t + 1.1);
+    }
+    
+    /**
+     * Som de MUTATE - Mutação/Transformação
+     */
+    playMutate() {
+        if (!this.ensureContext()) return;
+        
+        const ctx = this.audioContext;
+        const t = ctx.currentTime;
+        
+        // Efeito de "glitch" com frequências variáveis
+        for (let i = 0; i < 8; i++) {
+            const osc = ctx.createOscillator();
+            osc.type = i % 2 === 0 ? 'square' : 'sawtooth';
+            
+            const startFreq = 200 + Math.random() * 600;
+            const endFreq = 100 + Math.random() * 800;
+            const start = t + i * 0.08;
+            
+            osc.frequency.setValueAtTime(startFreq, start);
+            osc.frequency.linearRampToValueAtTime(endFreq, start + 0.06);
+            
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(0.08, start + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, start + 0.07);
+            
+            // Bitcrusher effect simulado
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 400 + Math.random() * 400;
+            filter.Q.value = 10;
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+            
+            osc.start(start);
+            osc.stop(start + 0.08);
+        }
+        
+        // Tom final de "transformação completa"
+        const finalOsc = ctx.createOscillator();
+        finalOsc.type = 'sine';
+        finalOsc.frequency.setValueAtTime(300, t + 0.7);
+        finalOsc.frequency.exponentialRampToValueAtTime(600, t + 1);
+        
+        const finalGain = ctx.createGain();
+        finalGain.gain.setValueAtTime(0, t + 0.7);
+        finalGain.gain.linearRampToValueAtTime(0.1, t + 0.75);
+        finalGain.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+        
+        finalOsc.connect(finalGain);
+        finalGain.connect(this.masterGain);
+        
+        finalOsc.start(t + 0.7);
+        finalOsc.stop(t + 1.2);
+    }
+    
+    /**
+     * Som de TICKLE - Cócegas/Risada
+     */
+    playTickle() {
+        if (!this.ensureContext()) return;
+        
+        const ctx = this.audioContext;
+        const t = ctx.currentTime;
+        
+        // Sequência rápida de notas altas (risadinha)
+        const notes = [600, 700, 650, 750, 700, 800, 750, 850];
+        
+        notes.forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            
+            const gain = ctx.createGain();
+            const start = t + i * 0.06;
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(0.06, start + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, start + 0.05);
+            
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            
+            osc.start(start);
+            osc.stop(start + 0.06);
+        });
+    }
+    
+    /**
+     * Som de HEAL - Cura
+     */
+    playHeal() {
+        if (!this.ensureContext()) return;
+        
+        const ctx = this.audioContext;
+        const t = ctx.currentTime;
+        
+        // Arpejo mágico ascendente
+        const notes = [392, 494, 587, 784, 988];
+        
+        notes.forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            
+            const gain = ctx.createGain();
+            const start = t + i * 0.1;
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(0.1, start + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.02, start + 0.3);
+            gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
+            
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            
+            osc.start(start);
+            osc.stop(start + 0.6);
+        });
+    }
+
 }
 
 // Singleton export

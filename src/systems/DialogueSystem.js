@@ -128,6 +128,124 @@ const DIALOGUES = {
         "Evoluindo!",
         "✧ POWER UP ✧",
         "Crescendo!"
+    ],
+    
+    // ═══ CHOQUE ELÉTRICO ═══
+    shocked: [
+        "AAAHHH!!!",
+        "⚡ BZZZZT! ⚡",
+        "M-meus v-vértices!",
+        "*frita geometricamente*",
+        "ISSO DÓI!",
+        "POR QUÊ?!",
+        "Minhas arestas!",
+        "*pixels tremendo*",
+        "Não de novo...",
+        "Estou... carregado!",
+        "QUE TENSÃO!",
+        "*zzzzap*"
+    ],
+    
+    // ═══ CONGELAMENTO ═══
+    frozen: [
+        "F-f-frio...",
+        "*congela*",
+        "Meus pixels... duros...",
+        "❄️ GELANDO ❄️",
+        "N-não consigo... mexer...",
+        "Tão... frio...",
+        "*treme de frio*",
+        "Minhas cores... azuis...",
+        "Preciso de calor...",
+        "Virando... gelo...",
+        "*dentes batendo*",
+        "Socorro... congelando..."
+    ],
+    
+    // ═══ DESCONGELANDO ═══
+    thawing: [
+        "Aaah... derretendo...",
+        "Voltando ao normal!",
+        "Finalmente... calor!",
+        "Minhas formas voltaram!",
+        "*se aquecendo*"
+    ],
+    
+    // ═══ MUTAÇÃO ═══
+    mutating: [
+        "O QUE ESTÁ ACONTECENDO?!",
+        "Minha forma... mudando!",
+        "AAAH não sou mais eu!",
+        "*glitch intenso*",
+        "Quem... sou eu?",
+        "Meus vértices... diferentes!",
+        "✧ TRANSFORMANDO ✧",
+        "Instável... molecularmente...",
+        "EU ERA UM {shape}!",
+        "Isso é... estranho...",
+        "*pixels reorganizando*",
+        "Não reconheço meu corpo!"
+    ],
+    
+    // ═══ PÓS-MUTAÇÃO ═══
+    mutated: [
+        "Sou um... novo eu?",
+        "Que forma estranha...",
+        "Preciso me acostumar...",
+        "Olha só meus ângulos!",
+        "Diferente... mas ok!",
+        "*examina nova forma*"
+    ],
+    
+    // ═══ CÓCEGAS ═══
+    tickled: [
+        "HAHAHA!",
+        "Para! Hehe!",
+        "Não! Cócegas não! Haha!",
+        "*morrendo de rir*",
+        "Ahahaha! Chega!",
+        "Minhas arestas são sensíveis!",
+        "HIHIHI~",
+        "Não nos vértices! Haha!",
+        "*risada geométrica*",
+        "Para para HAHAHA!",
+        "Aiii que cócegas!",
+        "♪ Hehehe~ ♪"
+    ],
+    
+    // ═══ CURAR/HEAL ═══
+    healed: [
+        "Aaah~ que alívio!",
+        "Me sinto renovado!",
+        "Obrigado pelo cuidado!",
+        "✧ Restaurado ✧",
+        "Energia positiva!",
+        "Muito melhor!",
+        "*brilha de gratidão*",
+        "Você é gentil!"
+    ],
+    
+    // ═══ REAÇÕES A MAUS TRATOS REPETIDOS ═══
+    mistreated: [
+        "Por que faz isso?",
+        "Eu confiei em você...",
+        "Isso machuca...",
+        "Não gosto disso...",
+        "*olhar triste*",
+        "Preferia carinho...",
+        "Sou só formas... mas sinto...",
+        "Você gosta de me ver sofrer?"
+    ],
+    
+    // ═══ REAÇÕES A DONO CARINHOSO ═══
+    loved: [
+        "Melhor dono!",
+        "Te adoro! 💕",
+        "Obrigado por cuidar de mim!",
+        "Você é especial!",
+        "*coração geométrico*",
+        "Sortudo por ter você!",
+        "♥ Amor infinito ♥"
     ]
 };
 
@@ -142,7 +260,11 @@ const EMOTION_EMOJIS = {
     dying: ['💀', '😵', '×_×', '...'],
     eating: ['🍎', '😋', '♨', 'NOM'],
     love: ['💕', '💗', '❤', '♥'],
-    surprised: ['!?', '!!', '⚡', '😮']
+    surprised: ['!?', '!!', '⚡', '😮'],
+    shocked: ['⚡', '💥', '😱', 'ZZZAP'],
+    frozen: ['❄️', '🥶', '💎', '*.*'],
+    mutating: ['🔄', '✧', '???', '!?!'],
+    tickled: ['😂', '🤣', 'haha', '~♪']
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -194,12 +316,21 @@ class DialogueSystemClass {
     generateDialogue(context, emotion = 'neutral', shapeId = 'circulo') {
         let phrases;
         
-        // Contextos que têm suas próprias frases
-        if (['eating', 'petted', 'moving', 'birth', 'greeting', 'farewell', 'levelUp'].includes(context)) {
-            phrases = DIALOGUES[context] || [];
-        } else {
+        // Contextos especiais que têm suas próprias frases
+        const specialContexts = [
+            'eating', 'petted', 'moving', 'birth', 'greeting', 'farewell', 'levelUp',
+            'shocked', 'frozen', 'thawing', 'mutating', 'mutated', 'tickled', 'healed',
+            'mistreated', 'loved'
+        ];
+        
+        if (specialContexts.includes(context) && DIALOGUES[context]) {
+            phrases = DIALOGUES[context];
+        } else if (DIALOGUES.idle && DIALOGUES.idle[emotion]) {
             // Usa idle com emoção
-            phrases = DIALOGUES.idle[emotion] || DIALOGUES.idle.neutral;
+            phrases = DIALOGUES.idle[emotion];
+        } else {
+            // Fallback
+            phrases = DIALOGUES.idle?.neutral || ['...'];
         }
         
         if (phrases.length === 0) {

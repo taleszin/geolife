@@ -9,6 +9,8 @@ import { UISoundSystem } from '../systems/UISoundSystem.js';
 import { PetVoiceSystem } from '../systems/PetVoiceSystem.js';
 import { DialogueSystem } from '../systems/DialogueSystem.js';
 import MaterializationSystem from '../systems/MaterializationSystem.js';
+import { PetEffectsSystem } from '../systems/PetEffectsSystem.js';
+import { InteractionHistorySystem, INTERACTION_TYPES } from '../systems/InteractionHistorySystem.js';
 
 export default class HomeScene {
     constructor(game) {
@@ -23,6 +25,11 @@ export default class HomeScene {
         // Sistema de Materialização
         this.materializationSystem = new MaterializationSystem();
         this.isFirstSpawn = true; // Flag para nascimento inicial
+        
+        // Sistema de Efeitos
+        this.effectsSystem = PetEffectsSystem;
+        
+        // Sem cooldowns - jogador pode interagir livremente
         
         // UI Elements
         this.hungerBar = null;
@@ -154,12 +161,36 @@ export default class HomeScene {
                             <div class="stat-fill" id="hunger-bar"></div>
                         </div>
                     </div>
+                    <div class="stat">
+                        <span class="stat-label">FELICIDADE</span>
+                        <div class="stat-bar">
+                            <div class="stat-fill happiness" id="happiness-bar"></div>
+                        </div>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">ENERGIA</span>
+                        <div class="stat-bar">
+                            <div class="stat-fill energy" id="energy-bar"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
             <div class="home-actions">
-                <button id="feed-btn" class="action-btn">🍎 Alimentar</button>
-                <button id="respawn-btn" class="action-btn">🔮 Re-Sintetizar</button>
+                <button id="feed-btn" class="action-btn positive">🍎 Alimentar</button>
+                <button id="tickle-btn" class="action-btn positive">🪶 Cócegas</button>
+                <button id="heal-btn" class="action-btn positive">💚 Curar</button>
+            </div>
+            
+            <div class="home-actions-chaos">
+                <span class="chaos-label">⚠️ CAOS</span>
+                <button id="shock-btn" class="action-btn danger">⚡ Choque</button>
+                <button id="freeze-btn" class="action-btn danger">❄️ Congelar</button>
+                <button id="mutate-btn" class="action-btn danger">🔮 Mutar</button>
+            </div>
+            
+            <div class="home-actions-secondary">
+                <button id="respawn-btn" class="action-btn secondary">🔄 Re-Sintetizar</button>
                 <button id="edit-btn" class="action-btn secondary">✏️ Editar</button>
             </div>
             
@@ -176,11 +207,34 @@ export default class HomeScene {
         document.getElementById('ui-layer').appendChild(uiContainer);
         
         this.hungerBar = document.getElementById('hunger-bar');
+        this.happinessBar = document.getElementById('happiness-bar');
+        this.energyBar = document.getElementById('energy-bar');
         
-        // Bind events com sons
+        // Bind events com sons - Ações positivas
         const feedBtn = document.getElementById('feed-btn');
         feedBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
         feedBtn.addEventListener('click', () => this.feedPet());
+        
+        const tickleBtn = document.getElementById('tickle-btn');
+        tickleBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        tickleBtn.addEventListener('click', () => this.ticklePet());
+        
+        const healBtn = document.getElementById('heal-btn');
+        healBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        healBtn.addEventListener('click', () => this.healPet());
+        
+        // Bind events - Ações de caos
+        const shockBtn = document.getElementById('shock-btn');
+        shockBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        shockBtn.addEventListener('click', () => this.shockPet());
+        
+        const freezeBtn = document.getElementById('freeze-btn');
+        freezeBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        freezeBtn.addEventListener('click', () => this.freezePet());
+        
+        const mutateBtn = document.getElementById('mutate-btn');
+        mutateBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        mutateBtn.addEventListener('click', () => this.mutatePet());
         
         const editBtn = document.getElementById('edit-btn');
         editBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
@@ -323,6 +377,212 @@ export default class HomeScene {
         this.pet.moveTo(this.food.x, this.food.y);
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // NOVAS INTERAÇÕES
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Aplica choque elétrico no pet
+     */
+    shockPet() {
+        // Som
+        UISoundSystem.playShock();
+        
+        // Aplica no pet
+        this.pet.shock();
+        
+        // Registra no histórico
+        InteractionHistorySystem.record(INTERACTION_TYPES.SHOCK, {
+            mood: this.pet.expressionState.mood,
+            hunger: this.pet.hunger,
+            happiness: this.pet.happiness,
+            energy: this.pet.energy
+        });
+        
+        // Fala de choque
+        const dialogue = DialogueSystem.speak('shocked', 'shocked', this.pet.shapeId);
+        this.pet.say(dialogue, 'shocked');
+        
+        this.showHint('⚡ ZZZAP! -20 felicidade, -15 energia');
+        this.updateAllBars();
+        
+        // Efeito visual via CSS (shake + amarelado)
+        this.addScreenEffect('shock');
+    }
+    
+    /**
+     * Congela o pet
+     */
+    freezePet() {
+        // Som
+        UISoundSystem.playFreeze();
+        
+        // Aplica no pet
+        this.pet.freeze();
+        
+        // Registra no histórico
+        InteractionHistorySystem.record(INTERACTION_TYPES.FREEZE, {
+            mood: this.pet.expressionState.mood,
+            hunger: this.pet.hunger,
+            happiness: this.pet.happiness,
+            energy: this.pet.energy
+        });
+        
+        // Fala
+        const dialogue = DialogueSystem.speak('frozen', 'frozen', this.pet.shapeId);
+        this.pet.say(dialogue, 'frozen');
+        
+        this.showHint('❄️ Congelando! -25 energia, -10 felicidade');
+        this.updateAllBars();
+        
+        // Efeito visual via CSS
+        this.addScreenEffect('freeze');
+    }
+    
+    /**
+     * Muta o pet para outra forma
+     */
+    mutatePet() {
+        // Som
+        UISoundSystem.playMutate();
+        
+        // Aplica no pet
+        const result = this.pet.mutate(null, 5000);
+        
+        // Registra no histórico
+        InteractionHistorySystem.record(INTERACTION_TYPES.MUTATE, {
+            mood: this.pet.expressionState.mood,
+            originalShape: result.original,
+            mutatedShape: result.mutated,
+            hunger: this.pet.hunger,
+            happiness: this.pet.happiness,
+            energy: this.pet.energy
+        });
+        
+        // Fala
+        const dialogue = DialogueSystem.speak('mutating', 'mutating', result.original);
+        this.pet.say(dialogue, 'mutating');
+        
+        this.showHint(`🔮 Mutando de ${result.original} para ${result.mutated}!`);
+        this.updateAllBars();
+        
+        // Efeito visual via CSS
+        this.addScreenEffect('mutate');
+    }
+    
+    /**
+     * Faz cócegas no pet
+     */
+    ticklePet() {
+        // Som
+        UISoundSystem.playTickle();
+        
+        // Aplica no pet
+        this.pet.tickle();
+        
+        // Registra no histórico
+        InteractionHistorySystem.record(INTERACTION_TYPES.TICKLE, {
+            mood: this.pet.expressionState.mood,
+            hunger: this.pet.hunger,
+            happiness: this.pet.happiness,
+            energy: this.pet.energy
+        });
+        
+        // Fala
+        const dialogue = DialogueSystem.speak('tickled', 'tickled', this.pet.shapeId);
+        this.pet.say(dialogue, 'tickled');
+        
+        this.showHint('🪶 Hahaha! +15 felicidade');
+        this.updateAllBars();
+    }
+    
+    /**
+     * Cura/restaura o pet
+     */
+    healPet() {
+        // Som
+        UISoundSystem.playHeal();
+        
+        // Aplica no pet
+        this.pet.heal(30);
+        
+        // Registra no histórico
+        InteractionHistorySystem.record(INTERACTION_TYPES.HEAL, {
+            mood: this.pet.expressionState.mood,
+            hunger: this.pet.hunger,
+            happiness: this.pet.happiness,
+            energy: this.pet.energy
+        });
+        
+        // Fala
+        const dialogue = DialogueSystem.speak('healed', 'love', this.pet.shapeId);
+        this.pet.say(dialogue, 'healed');
+        
+        this.showHint('💚 Curado! +30 stats');
+        this.updateAllBars();
+        
+        this.addScreenEffect('heal');
+    }
+    
+    /**
+     * Adiciona efeito visual temporário na tela
+     */
+    addScreenEffect(type) {
+        const container = document.getElementById('game-container');
+        if (!container) return;
+        
+        container.classList.add(`effect-${type}`);
+        
+        // Remove após a animação
+        const durations = {
+            shock: 2000,
+            freeze: 4000,
+            mutate: 3000,
+            heal: 1000
+        };
+        
+        setTimeout(() => {
+            container.classList.remove(`effect-${type}`);
+        }, durations[type] || 1000);
+    }
+    
+    /**
+     * Atualiza todas as barras de stats
+     */
+    updateAllBars() {
+        this.updateHungerBar();
+        this.updateHappinessBar();
+        this.updateEnergyBar();
+    }
+    
+    updateHappinessBar() {
+        if (this.happinessBar) {
+            this.happinessBar.style.width = `${this.pet.happiness}%`;
+            
+            if (this.pet.happiness < 30) {
+                this.happinessBar.style.backgroundColor = '#ff4444';
+            } else if (this.pet.happiness < 60) {
+                this.happinessBar.style.backgroundColor = '#ffaa00';
+            } else {
+                this.happinessBar.style.backgroundColor = '#ff69b4';
+            }
+        }
+    }
+    
+    updateEnergyBar() {
+        if (this.energyBar) {
+            this.energyBar.style.width = `${this.pet.energy}%`;
+            
+            if (this.pet.energy < 30) {
+                this.energyBar.style.backgroundColor = '#ff4444';
+            } else if (this.pet.energy < 60) {
+                this.energyBar.style.backgroundColor = '#ffaa00';
+            } else {
+                this.energyBar.style.backgroundColor = '#00ffff';
+            }
+        }
+    }
+    
     goToEditor() {
         UISoundSystem.playClose();
         this.game.changeScene('editor');
@@ -345,7 +605,7 @@ export default class HomeScene {
     startHungerDecay() {
         this.hungerDecayInterval = setInterval(() => {
             this.pet.hunger = Math.max(0, this.pet.hunger - 1);
-            this.updateHungerBar();
+            this.updateAllBars();
         }, 1000);
     }
     
@@ -431,7 +691,15 @@ export default class HomeScene {
             // Pet come a comida
             this.pet.feed(25);
             this.food = null;
-            this.updateHungerBar();
+            this.updateAllBars();
+            
+            // Registra no histórico
+            InteractionHistorySystem.record(INTERACTION_TYPES.FEED, {
+                mood: this.pet.expressionState.mood,
+                hunger: this.pet.hunger,
+                happiness: this.pet.happiness,
+                energy: this.pet.energy
+            });
             
             // Som e fala de alimentação
             UISoundSystem.playFeed();
@@ -511,6 +779,102 @@ export default class HomeScene {
         this.renderer.flush();
     }
     
+    /**
+     * Renderiza efeitos visuais especiais no pet
+     */
+    renderPetEffects() {
+        // Efeito de congelamento
+        if (this.effectsSystem.isFrozen()) {
+            const progress = this.effectsSystem.getFreezeProgress();
+            const tremble = this.effectsSystem.getFreezeTremble();
+            
+            // Aplica tremor ao pet
+            this.pet.x += tremble.x;
+            this.pet.y += tremble.y;
+            
+            // Renderiza cristais de gelo ao redor
+            this.drawFreezeEffect(progress);
+        }
+        
+        // Efeito de mutação
+        if (this.effectsSystem.isMutating()) {
+            const data = this.effectsSystem.getMutationData();
+            if (data) {
+                this.drawMutationEffect(data);
+            }
+        }
+        
+        // Efeito de cócegas
+        if (this.effectsSystem.isTickled()) {
+            const visuals = this.effectsSystem.getTickleVisuals();
+            if (visuals) {
+                // Aplica squash/stretch de risada
+                this.pet.squashX = visuals.squash.x;
+                this.pet.squashY = visuals.squash.y;
+                
+                // Aplica bounce
+                this.pet.y -= visuals.bounce;
+            }
+        }
+    }
+    
+    /**
+     * Desenha efeito de congelamento
+     */
+    drawFreezeEffect(progress) {
+        const cx = this.pet.x;
+        const cy = this.pet.y;
+        const radius = this.pet.size * 1.5;
+        
+        // Aura gelada
+        const iceColor = { r: 100, g: 200, b: 255 };
+        const alpha = Math.floor(100 * (1 - progress));
+        
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2 + Date.now() * 0.001;
+            const dist = radius * (0.8 + Math.sin(Date.now() * 0.002 + i) * 0.2);
+            const x = cx + Math.cos(angle) * dist;
+            const y = cy + Math.sin(angle) * dist;
+            
+            // Cristal de gelo (pequeno triângulo/losango)
+            const size = 3 + Math.random() * 3;
+            this.renderer.setPixelBlend(x, y, iceColor.r, iceColor.g, iceColor.b, alpha);
+            this.renderer.setPixelBlend(x + 1, y, iceColor.r, iceColor.g, iceColor.b, alpha * 0.7);
+            this.renderer.setPixelBlend(x - 1, y, iceColor.r, iceColor.g, iceColor.b, alpha * 0.7);
+            this.renderer.setPixelBlend(x, y + 1, iceColor.r, iceColor.g, iceColor.b, alpha * 0.7);
+            this.renderer.setPixelBlend(x, y - 1, iceColor.r, iceColor.g, iceColor.b, alpha * 0.7);
+        }
+        
+        // Borda congelada ao redor do pet
+        if (progress < 0.8) {
+            this.renderer.drawNeonCircle(cx, cy, this.pet.size + 5, '#88ddff', 2);
+        }
+    }
+    
+    /**
+     * Desenha efeito de mutação (glitch visual)
+     */
+    drawMutationEffect(data) {
+        const cx = this.pet.x;
+        const cy = this.pet.y;
+        
+        // Linhas de glitch
+        const glitchColor = '#ff00ff';
+        const { r, g, b } = this.renderer.hexToRgb(glitchColor);
+        
+        for (let i = 0; i < data.glitch.slices; i++) {
+            const y = cy - this.pet.size + Math.random() * this.pet.size * 2;
+            const offsetX = data.glitch.offsetX * (Math.random() - 0.5) * 2;
+            
+            // Desenha linha de interferência
+            for (let x = cx - this.pet.size; x < cx + this.pet.size; x++) {
+                if (Math.random() > 0.5) {
+                    this.renderer.setPixelBlend(x + offsetX, y, r, g, b, 100);
+                }
+            }
+        }
+    }
+    
     updateDialogueBubble() {
         let bubble = document.getElementById('dialogue-bubble');
         const dialogue = this.pet.getDialogue();
@@ -526,10 +890,17 @@ export default class HomeScene {
             bubble.textContent = dialogue;
             bubble.style.display = 'block';
             
-            // Posiciona acima do pet
+            // Posiciona acima do pet (ajusta para escala do canvas)
             const canvasRect = this.canvas.getBoundingClientRect();
-            bubble.style.left = `${this.pet.x}px`;
-            bubble.style.top = `${this.pet.y - this.pet.size * 2 - 30}px`;
+            const scaleX = canvasRect.width / this.canvas.width;
+            const scaleY = canvasRect.height / this.canvas.height;
+            
+            // Converte coordenadas do canvas para coordenadas da tela
+            const screenX = this.pet.x * scaleX;
+            const screenY = this.pet.y * scaleY;
+            
+            bubble.style.left = `${screenX}px`;
+            bubble.style.top = `${screenY - this.pet.size * scaleY * 2 - 30}px`;
         } else if (bubble) {
             bubble.style.display = 'none';
         }
