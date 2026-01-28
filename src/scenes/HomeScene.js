@@ -190,18 +190,10 @@ export default class HomeScene {
             </div>
             
             <div class="home-actions-secondary">
-                <button id="respawn-btn" class="action-btn secondary">🔄 Re-Sintetizar</button>
                 <button id="edit-btn" class="action-btn secondary">✏️ Editar</button>
             </div>
             
-            <div class="materialization-modes" id="mat-modes" style="display: none;">
-                <button class="mat-mode-btn" data-mode="scanline">📺 Scanline</button>
-                <button class="mat-mode-btn" data-mode="radial">🌀 Radial</button>
-                <button class="mat-mode-btn" data-mode="glitch">⚡ Glitch</button>
-                <button class="mat-mode-btn" data-mode="spiral">🔄 Espiral</button>
-            </div>
-            
-            <div class="hint-text" id="hint-text">Clique no chão para mover seu pet!</div>
+            <div class="hint-text" id="hint-text">Clique no chão para mover seu pet!</div> 
         `;
         
         document.getElementById('ui-layer').appendChild(uiContainer);
@@ -239,45 +231,9 @@ export default class HomeScene {
         const editBtn = document.getElementById('edit-btn');
         editBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
         editBtn.addEventListener('click', () => this.goToEditor());
-        
-        // Botão de re-sintetizar
-        const respawnBtn = document.getElementById('respawn-btn');
-        respawnBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
-        respawnBtn.addEventListener('click', () => this.toggleMaterializationModes());
-        
-        // Botões de modo de materialização
-        document.querySelectorAll('.mat-mode-btn').forEach(btn => {
-            btn.addEventListener('mouseenter', () => UISoundSystem.playHover());
-            btn.addEventListener('click', (e) => {
-                const mode = e.target.dataset.mode;
-                this.respawnPet(mode);
-            });
-        });
     }
     
-    toggleMaterializationModes() {
-        const modes = document.getElementById('mat-modes');
-        const isVisible = modes.style.display !== 'none';
-        modes.style.display = isVisible ? 'none' : 'flex';
-        UISoundSystem.playClick(isVisible ? 'cancel' : 'confirm');
-    }
-    
-    respawnPet(mode) {
-        // Esconde menu
-        document.getElementById('mat-modes').style.display = 'none';
-        
-        // Reseta posição do pet
-        this.pet.x = this.roomBounds.x + this.roomBounds.width / 2;
-        this.pet.y = this.roomBounds.y + this.roomBounds.height / 2;
-        this.pet.targetX = null;
-        this.pet.targetY = null;
-        
-        // Inicia materialização
-        this.isFirstSpawn = false;
-        this.startMaterialization(mode);
-        
-        this.showHint(`🔮 Re-sintetizando em modo ${mode.toUpperCase()}...`);
-    }
+
     
     // ═══════════════════════════════════════════════════════════════════
     // DIALOGUE SYSTEM SETUP
