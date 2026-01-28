@@ -34,12 +34,16 @@ export default class HomeScene {
         // UI Elements
         this.hungerBar = null;
         
-        // Room bounds
+        // Background image
+        this.backgroundImage = null;
+        this.backgroundLoaded = false;
+        
+        // Room bounds - será calculado dinamicamente
         this.roomBounds = {
-            x: 50,
-            y: 100,
-            width: 300,
-            height: 250
+            x: 0,
+            y: 0,
+            width: 800,
+            height: 600
         };
         
         // Food
@@ -116,6 +120,11 @@ export default class HomeScene {
             clearInterval(this.hungerDecayInterval);
         }
         
+        // Remove resize listener
+        if (this.resizeHandler) {
+            window.removeEventListener('resize', this.resizeHandler);
+        }
+        
         // Remove UI
         const uiContainer = document.getElementById('home-ui');
         if (uiContainer) uiContainer.remove();
@@ -131,8 +140,16 @@ export default class HomeScene {
     createCanvas() {
         this.canvas = document.createElement('canvas');
         this.canvas.id = 'home-canvas';
-        this.canvas.width = 400;
-        this.canvas.height = 400;
+        
+        // Carrega imagem de fundo
+        this.backgroundImage = new Image();
+        this.backgroundImage.onload = () => {
+            this.backgroundLoaded = true;
+        };
+        this.backgroundImage.src = '/background.png';
+        
+        // Calcula tamanho responsivo
+        this.updateCanvasSize();
         
         const container = document.getElementById('game-container');
         container.appendChild(this.canvas);
@@ -142,6 +159,96 @@ export default class HomeScene {
         // Eventos
         this.canvas.addEventListener('click', (e) => this.onClick(e));
         this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        
+        // Touch events para mobile
+        this.canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+        
+        // Resize listener
+        this.resizeHandler = () => this.updateCanvasSize();
+        window.addEventListener('resize', this.resizeHandler);
+    }
+    
+    /**
+     * Atualiza tamanho do canvas de forma responsiva
+     */
+    updateCanvasSize() {
+        // Calcula tamanho baseado na janela
+        const maxWidth = Math.min(window.innerWidth - 40, 900);
+        const maxHeight = Math.min(window.innerHeight - 280, 700); // Espaço para UI
+        
+        // Mantém aspect ratio 4:3 para consistência
+        const aspectRatio = 4 / 3;
+        let width, height;
+        
+        if (maxWidth / maxHeight > aspectRatio) {
+            height = maxHeight;
+            width = height * aspectRatio;
+        } else {
+            width = maxWidth;
+            height = width / aspectRatio;
+        }
+        
+        // Garante mínimos para mobile
+        width = Math.max(320, Math.floor(width));
+        height = Math.max(240, Math.floor(height));
+        
+        this.canvas.width = width;
+        this.canvas.height = height;
+        
+        // Atualiza roomBounds para ocupar todo o canvas com margem
+        const margin = Math.min(width, height) * 0.05;
+        this.roomBounds = {
+            x: margin,
+            y: margin,
+            width: width - margin * 2,
+            height: height - margin * 2
+        };
+        
+        // Reposiciona pet se existir
+        if (this.pet) {
+            // Mantém pet dentro dos novos bounds
+            this.pet.x = Math.max(this.roomBounds.x + this.pet.size, 
+                         Math.min(this.roomBounds.x + this.roomBounds.width - this.pet.size, this.pet.x));
+            this.pet.y = Math.max(this.roomBounds.y + this.pet.size, 
+                         Math.min(this.roomBounds.y + this.roomBounds.height - this.pet.size, this.pet.y));
+        }
+    }
+    
+    /**
+     * Touch start handler para mobile
+     */
+    onTouchStart(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const x = (touch.clientX - rect.left) * scaleX;
+        const y = (touch.clientY - rect.top) * scaleY;
+        
+        if (this.isInsideRoom(x, y)) {
+            if (this.food && this.isNearFood(x, y)) {
+                this.pet.moveTo(this.food.x, this.food.y);
+            } else {
+                this.pet.moveTo(x, y);
+            }
+        }
+    }
+    
+    /**
+     * Touch move handler para eye tracking em mobile
+     */
+    onTouchMove(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const x = (touch.clientX - rect.left) * scaleX;
+        const y = (touch.clientY - rect.top) * scaleY;
+        
+        this.pet.lookAt(x, y);
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -260,11 +367,15 @@ export default class HomeScene {
     // ═══════════════════════════════════════════════════════════════════
     
     createPet() {
+        // Escala do pet baseada no tamanho do canvas
+        const baseSize = Math.min(this.canvas.width, this.canvas.height) * 0.08;
+        const petSize = Math.max(35, Math.min(50, baseSize));
+        
         this.pet = new GeoPet({
             ...this.petData,
             x: this.roomBounds.x + this.roomBounds.width / 2,
             y: this.roomBounds.y + this.roomBounds.height / 2,
-            size: 40,
+            size: petSize,
             scale: 1
         });
     }
@@ -732,11 +843,16 @@ export default class HomeScene {
     // ═══════════════════════════════════════════════════════════════════
     
     render() {
-        // Clear
-        this.renderer.clear('#0a0a0f');
+        const ctx = this.renderer.ctx;
         
-        // Draw room
-        this.drawRoom();
+        // 1. Primeiro desenha o background (diretamente no canvas, não no buffer de pixels)
+        this.drawBackground();
+        
+        // 2. Limpa o buffer de pixels com transparência para os elementos do jogo
+        this.renderer.clearTransparent();
+        
+        // 3. Desenha elementos do jogo no buffer
+        this.drawRoomOverlay();
         
         // Draw food
         if (this.food) {
@@ -756,11 +872,79 @@ export default class HomeScene {
             this.materializationSystem.renderParticles(this.renderer);
         }
         
+        // 4. Aplica o buffer sobre o background (com composição alpha)
+        this.renderer.flushWithAlpha();
+        
         // Draw dialogue bubble (usando HTML overlay)
         this.updateDialogueBubble();
+    }
+    
+    /**
+     * Desenha o background (imagem ou fallback)
+     */
+    drawBackground() {
+        const ctx = this.renderer.ctx;
         
-        // Flush
-        this.renderer.flush();
+        if (this.backgroundLoaded && this.backgroundImage) {
+            // Calcula dimensões para cover
+            const imgRatio = this.backgroundImage.width / this.backgroundImage.height;
+            const canvasRatio = this.canvas.width / this.canvas.height;
+            
+            let drawWidth, drawHeight, offsetX, offsetY;
+            
+            if (canvasRatio > imgRatio) {
+                drawWidth = this.canvas.width;
+                drawHeight = drawWidth / imgRatio;
+                offsetX = 0;
+                offsetY = (this.canvas.height - drawHeight) / 2;
+            } else {
+                drawHeight = this.canvas.height;
+                drawWidth = drawHeight * imgRatio;
+                offsetX = (this.canvas.width - drawWidth) / 2;
+                offsetY = 0;
+            }
+            
+            ctx.drawImage(this.backgroundImage, offsetX, offsetY, drawWidth, drawHeight);
+            
+            // Overlay escuro sutil para contraste
+            ctx.fillStyle = 'rgba(5, 5, 10, 0.35)';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        } else {
+            // Fallback: gradiente escuro
+            const gradient = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+            gradient.addColorStop(0, '#0a0a12');
+            gradient.addColorStop(0.5, '#0d0d18');
+            gradient.addColorStop(1, '#08080f');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+    }
+    
+    /**
+     * Desenha overlay do quarto (grid e bordas neon)
+     */
+    drawRoomOverlay() {
+        const b = this.roomBounds;
+        const ctx = this.renderer.ctx;
+        
+        // Grid sutil (direto no canvas após o background)
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.06)';
+        ctx.lineWidth = 1;
+        const gridSpacing = Math.max(30, Math.min(50, this.canvas.width / 12));
+        
+        for (let x = b.x; x <= b.x + b.width; x += gridSpacing) {
+            ctx.beginPath();
+            ctx.moveTo(x, b.y);
+            ctx.lineTo(x, b.y + b.height);
+            ctx.stroke();
+        }
+        
+        for (let y = b.y; y <= b.y + b.height; y += gridSpacing) {
+            ctx.beginPath();
+            ctx.moveTo(b.x, y);
+            ctx.lineTo(b.x + b.width, y);
+            ctx.stroke();
+        }
     }
     
     /**
@@ -888,51 +1072,6 @@ export default class HomeScene {
         } else if (bubble) {
             bubble.style.display = 'none';
         }
-    }
-    
-    drawRoom() {
-        const b = this.roomBounds;
-        
-        // Chão (gradiente)
-        for (let y = b.y; y < b.y + b.height; y++) {
-            const t = (y - b.y) / b.height;
-            const r = Math.round(15 + t * 10);
-            const g = Math.round(15 + t * 10);
-            const bVal = Math.round(25 + t * 15);
-            
-            for (let x = b.x; x < b.x + b.width; x++) {
-                this.renderer.setPixel(x, y, r, g, bVal);
-            }
-        }
-        
-        // Grid do chão
-        const gridColor = '#1a1a2e';
-        for (let x = b.x; x <= b.x + b.width; x += 20) {
-            this.renderer.drawLine(x, b.y, x, b.y + b.height, gridColor);
-        }
-        for (let y = b.y; y <= b.y + b.height; y += 20) {
-            this.renderer.drawLine(b.x, y, b.x + b.width, y, gridColor);
-        }
-        
-        // Bordas do quarto (neon)
-        this.renderer.drawNeonLine(b.x, b.y, b.x + b.width, b.y, '#00ffff', 3);
-        this.renderer.drawNeonLine(b.x + b.width, b.y, b.x + b.width, b.y + b.height, '#00ffff', 3);
-        this.renderer.drawNeonLine(b.x + b.width, b.y + b.height, b.x, b.y + b.height, '#00ffff', 3);
-        this.renderer.drawNeonLine(b.x, b.y + b.height, b.x, b.y, '#00ffff', 3);
-        
-        // Cantos decorativos
-        const cornerSize = 15;
-        this.renderer.drawLine(b.x, b.y, b.x + cornerSize, b.y, '#ff00ff');
-        this.renderer.drawLine(b.x, b.y, b.x, b.y + cornerSize, '#ff00ff');
-        
-        this.renderer.drawLine(b.x + b.width, b.y, b.x + b.width - cornerSize, b.y, '#ff00ff');
-        this.renderer.drawLine(b.x + b.width, b.y, b.x + b.width, b.y + cornerSize, '#ff00ff');
-        
-        this.renderer.drawLine(b.x + b.width, b.y + b.height, b.x + b.width - cornerSize, b.y + b.height, '#ff00ff');
-        this.renderer.drawLine(b.x + b.width, b.y + b.height, b.x + b.width, b.y + b.height - cornerSize, '#ff00ff');
-        
-        this.renderer.drawLine(b.x, b.y + b.height, b.x + cornerSize, b.y + b.height, '#ff00ff');
-        this.renderer.drawLine(b.x, b.y + b.height, b.x, b.y + b.height - cornerSize, '#ff00ff');
     }
     
     drawFood() {

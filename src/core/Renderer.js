@@ -973,10 +973,47 @@ export default class Renderer {
     }
     
     /**
-     * Aplica o buffer de pixels ao canvas
+     * Limpa o buffer de pixels com transparência total
+     * Útil para compor sobre um background já desenhado
+     */
+    clearTransparent() {
+        for (let i = 0; i < this.pixels.length; i += 4) {
+            this.pixels[i] = 0;
+            this.pixels[i + 1] = 0;
+            this.pixels[i + 2] = 0;
+            this.pixels[i + 3] = 0;
+        }
+    }
+    
+    /**
+     * Aplica o buffer de pixels ao canvas (substitui tudo)
      */
     flush() {
         this.ctx.putImageData(this.imageData, 0, 0);
+    }
+    
+    /**
+     * Aplica o buffer de pixels ao canvas com composição alpha
+     * Preserva o que já estava desenhado no canvas
+     */
+    flushWithAlpha() {
+        // Cria canvas temporário se não existir
+        if (!this._tempCanvas) {
+            this._tempCanvas = document.createElement('canvas');
+            this._tempCtx = this._tempCanvas.getContext('2d');
+        }
+        
+        // Ajusta tamanho se necessário
+        if (this._tempCanvas.width !== this.width || this._tempCanvas.height !== this.height) {
+            this._tempCanvas.width = this.width;
+            this._tempCanvas.height = this.height;
+        }
+        
+        // Coloca imageData no canvas temporário
+        this._tempCtx.putImageData(this.imageData, 0, 0);
+        
+        // Desenha o canvas temporário sobre o principal com composição
+        this.ctx.drawImage(this._tempCanvas, 0, 0);
     }
     
     /**
