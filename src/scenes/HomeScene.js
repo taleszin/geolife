@@ -1066,13 +1066,12 @@ export default class HomeScene {
             bubble.style.display = 'block';
             
             // === POSICIONAMENTO ESTILO QUADRINHOS ===
-            // O balão deve ficar exatamente centralizado acima do pet
+            // O balão fica EXATAMENTE centralizado acima do pet
             
             const canvasRect = this.canvas.getBoundingClientRect();
             const containerRect = document.getElementById('game-container').getBoundingClientRect();
             
             // Escala entre coordenadas lógicas do renderer e pixels da tela
-            // Usa logicalWidth/Height se disponível, senão usa canvas.width/height
             const logicalW = this.renderer?.logicalWidth || this.canvas.width;
             const logicalH = this.renderer?.logicalHeight || this.canvas.height;
             const scaleX = canvasRect.width / logicalW;
@@ -1090,19 +1089,19 @@ export default class HomeScene {
             const petCenterX = canvasOffsetX + petScreenX;
             const petCenterY = canvasOffsetY + petScreenY;
             
-            // Raio do pet escalado (considera squash/stretch)
-            const petRadius = this.pet.size * this.pet.scale * Math.max(scaleX, scaleY);
+            // Raio do pet escalado
+            const petRadius = this.pet.size * this.pet.scale * scaleY;
             
-            // Posição do topo da "cabeça" do pet
-            // Adiciona pequena margem para o rabinho do balão
-            const tailGap = 10; // Espaço para o rabinho do balão
-            const bubbleBottomY = petCenterY - petRadius - tailGap;
+            // Topo da cabeça do pet + margem para o rabinho do balão (10px)
+            const tailHeight = 12; // Altura do rabinho CSS
+            const headTopY = petCenterY - petRadius - tailHeight;
             
-            // Centraliza horizontalmente e posiciona na parte inferior do balão
+            // Posiciona o balão: left centraliza horizontal, top define a BASE do balão
             bubble.style.left = `${petCenterX}px`;
-            bubble.style.bottom = `${containerRect.height - bubbleBottomY}px`;
-            bubble.style.top = 'auto'; // Remove top para usar bottom
-            bubble.style.transform = 'translateX(-50%)'; // Só centraliza horizontal
+            bubble.style.top = `${headTopY}px`;
+            bubble.style.bottom = 'auto';
+            // translateX(-50%) centraliza horizontal, translateY(-100%) coloca balão ACIMA do ponto
+            bubble.style.transform = 'translate(-50%, -100%)';
         } else if (bubble) {
             bubble.style.display = 'none';
         }

@@ -1918,23 +1918,26 @@ export default class GeoPet {
         const browAngle = this.faceParams.browAngle;
         const spacing = 10 * s;
         const browLen = 6 * s;
-        
+        // Cor da sobrancelha: sempre igual à cor do contorno se definida,
+        // senão usa `primaryColor` (cor de glow/material)
+        const browColor = this.borderColor || this.primaryColor;
+
         // Sobrancelha esquerda
         const leftStartY = browY - browAngle * 3 * s;
         const leftEndY = browY + browAngle * 3 * s;
         renderer.drawLine(
             cx - spacing - browLen / 2, leftStartY,
             cx - spacing + browLen / 2, leftEndY,
-            this.secondaryColor
+            browColor
         );
-        
+
         // Sobrancelha direita (espelhada)
         const rightStartY = browY + browAngle * 3 * s;
         const rightEndY = browY - browAngle * 3 * s;
         renderer.drawLine(
             cx + spacing - browLen / 2, rightStartY,
             cx + spacing + browLen / 2, rightEndY,
-            this.secondaryColor
+            browColor
         );
     }
     

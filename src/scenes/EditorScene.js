@@ -118,7 +118,7 @@ export default class EditorScene {
         const uiContainer = document.createElement('div');
         uiContainer.id = 'editor-ui';
         uiContainer.innerHTML = `
-            <h1 class="editor-title">✧ CRIAR PET ✧</h1>
+            <h1 class="editor-title"> CRIAR GEOPET </h1>
             
             <div class="editor-section">
                 <h3>FORMA</h3>
@@ -151,7 +151,7 @@ export default class EditorScene {
             
             <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
                 <button id="randomize-pet-btn" class="neon-btn small" title="Gerar aleatoriamente">⤴ ALEATÓRIO</button>
-                <button id="create-pet-btn" class="neon-btn">★ CRIAR PET ★</button>
+                <button id="create-pet-btn" class="neon-btn">CRIAR GEOPET</button>
             </div>
         `;
         
@@ -460,6 +460,9 @@ export default class EditorScene {
         this.selection.eyeIndex = eyeIdx;
         this.selection.mouthIndex = mouthIdx;
 
+        // Helper: gera cor HEX aleatória
+        const randHex = () => '#' + Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0');
+
         // Atualiza o pet
         if (!this.pet) {
             this.createPet();
@@ -473,6 +476,33 @@ export default class EditorScene {
             this.pet.mouthType = MOUTHS[mouthIdx].id;
             this.rematerialize();
         }
+
+        // --- Randomiza cores personalizadas (olhos, boca, contorno) ---
+        // Gera cores aleatórias e aplica ao pet e aos controles de UI
+        const eyeColor = randHex();
+        const mouthColor = randHex();
+        const borderColor = randHex();
+
+        if (this.pet) {
+            this.pet.eyeColor = eyeColor;
+            this.pet.mouthColor = mouthColor;
+            this.pet.borderColor = borderColor;
+        }
+
+        // Atualiza inputs e botões visuais (se existem)
+        const eyeInput = document.getElementById('eye-color-input');
+        const eyeBtn = document.getElementById('eye-color-btn');
+        const mouthInput = document.getElementById('mouth-color-input');
+        const mouthBtn = document.getElementById('mouth-color-btn');
+        const borderInput = document.getElementById('border-color-input');
+        const borderBtn = document.getElementById('border-color-btn');
+
+        if (eyeInput) eyeInput.value = eyeColor;
+        if (eyeBtn) eyeBtn.style.background = eyeColor;
+        if (mouthInput) mouthInput.value = mouthColor;
+        if (mouthBtn) mouthBtn.style.background = mouthColor;
+        if (borderInput) borderInput.value = borderColor;
+        if (borderBtn) borderBtn.style.background = borderColor;
 
         // Atualiza UI
         this.updateSelectedButtons('shape', shapeIdx);

@@ -35,7 +35,7 @@ const DIALOGUES = {
             "Snif...",
             "Estou com fome...",
             "Me alimenta?",
-            "*barriga ronca*",
+            "situação de barril",
             "Tão... fraco...",
             "Preciso de comida...",
             "Minha energia...",
@@ -48,6 +48,7 @@ const DIALOGUES = {
             "Preciso... comer...",
             "Me ajuda...",
             "Não aguento...",
+            "estoy cansado chefe",
             "💀"
         ]
     },
@@ -74,7 +75,7 @@ const DIALOGUES = {
         "*ronrona geometricamente*",
         "Adoro carinho!",
         "Você é o melhor!",
-        "💕",
+        "e nois",
         "Mais mais!",
         "*feliz*"
     ],
@@ -94,9 +95,9 @@ const DIALOGUES = {
         "Olá mundo!",
         "Eu existo!",
         "Sou um {shape}!",
-        "Prazer em conhecer!",
+        "Prazer em te conhecer, criador!",
         "Vamos ser amigos?",
-        "✧ Nasci! ✧",
+        "Nasci!",
         "Que cores lindas!",
         "Geometria é vida!"
     ],
