@@ -110,21 +110,13 @@ export default class EditorScene {
             </div>
             
             <div class="editor-section">
-                <h3>OLHOS <button class="rainbow-btn" id="eye-color-btn" title="Cor customizada"></button></h3>
+                <h3>OLHOS <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="eye-color-btn" title="Cor customizada"></button> <button class="color-reset-btn" id="eye-color-reset" title="Resetar cor">✕</button><input type="color" id="eye-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
                 <div class="option-row" id="eye-options"></div>
-                <div class="color-picker-container" id="eye-color-picker" style="display:none;">
-                    <input type="color" id="eye-color-input" value="#00ffff">
-                    <button class="color-reset-btn" id="eye-color-reset">✕ Resetar</button>
-                </div>
             </div>
             
             <div class="editor-section">
-                <h3>BOCA <button class="rainbow-btn" id="mouth-color-btn" title="Cor customizada"></button></h3>
+                <h3>BOCA <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="mouth-color-btn" title="Cor customizada"></button> <button class="color-reset-btn" id="mouth-color-reset" title="Resetar cor">✕</button><input type="color" id="mouth-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
                 <div class="option-row" id="mouth-options"></div>
-                <div class="color-picker-container" id="mouth-color-picker" style="display:none;">
-                    <input type="color" id="mouth-color-input" value="#00ffff">
-                    <button class="color-reset-btn" id="mouth-color-reset">✕ Resetar</button>
-                </div>
             </div>
             
             <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
@@ -272,69 +264,55 @@ export default class EditorScene {
     bindColorPickers() {
         // Botão de cor dos olhos
         const eyeColorBtn = document.getElementById('eye-color-btn');
-        const eyeColorPicker = document.getElementById('eye-color-picker');
         const eyeColorInput = document.getElementById('eye-color-input');
         const eyeColorReset = document.getElementById('eye-color-reset');
-        
+
         // Botão de cor da boca
         const mouthColorBtn = document.getElementById('mouth-color-btn');
-        const mouthColorPicker = document.getElementById('mouth-color-picker');
         const mouthColorInput = document.getElementById('mouth-color-input');
         const mouthColorReset = document.getElementById('mouth-color-reset');
-        
-        // Toggle picker dos olhos
-        if (eyeColorBtn) {
+
+        // Clique no botão arco-íris: dispara o seletor nativo imediatamente
+        if (eyeColorBtn && eyeColorInput) {
             eyeColorBtn.addEventListener('click', () => {
                 UISoundSystem.playSelect();
-                const isVisible = eyeColorPicker.style.display !== 'none';
-                eyeColorPicker.style.display = isVisible ? 'none' : 'flex';
-                eyeColorBtn.classList.toggle('active', !isVisible);
+                eyeColorInput.click();
             });
-        }
-        
-        // Input de cor dos olhos
-        if (eyeColorInput) {
+
             eyeColorInput.addEventListener('input', (e) => {
-                this.pet.eyeColor = e.target.value;
+                if (this.pet) this.pet.eyeColor = e.target.value;
                 eyeColorBtn.style.background = e.target.value;
             });
         }
-        
-        // Reset cor dos olhos
+
         if (eyeColorReset) {
             eyeColorReset.addEventListener('click', () => {
                 UISoundSystem.playSelect();
-                this.pet.eyeColor = null;
-                eyeColorBtn.style.background = '';
-                eyeColorInput.value = this.pet.secondaryColor || '#00ffff';
+                if (this.pet) this.pet.eyeColor = null;
+                if (eyeColorBtn) eyeColorBtn.style.background = '';
+                if (eyeColorInput) eyeColorInput.value = this.pet ? this.pet.secondaryColor || '#00ffff' : '#00ffff';
             });
         }
-        
-        // Toggle picker da boca
-        if (mouthColorBtn) {
+
+        // Boca: mesma lógica
+        if (mouthColorBtn && mouthColorInput) {
             mouthColorBtn.addEventListener('click', () => {
                 UISoundSystem.playSelect();
-                const isVisible = mouthColorPicker.style.display !== 'none';
-                mouthColorPicker.style.display = isVisible ? 'none' : 'flex';
-                mouthColorBtn.classList.toggle('active', !isVisible);
+                mouthColorInput.click();
             });
-        }
-        
-        // Input de cor da boca
-        if (mouthColorInput) {
+
             mouthColorInput.addEventListener('input', (e) => {
-                this.pet.mouthColor = e.target.value;
+                if (this.pet) this.pet.mouthColor = e.target.value;
                 mouthColorBtn.style.background = e.target.value;
             });
         }
-        
-        // Reset cor da boca
+
         if (mouthColorReset) {
             mouthColorReset.addEventListener('click', () => {
                 UISoundSystem.playSelect();
-                this.pet.mouthColor = null;
-                mouthColorBtn.style.background = '';
-                mouthColorInput.value = this.pet.secondaryColor || '#00ffff';
+                if (this.pet) this.pet.mouthColor = null;
+                if (mouthColorBtn) mouthColorBtn.style.background = '';
+                if (mouthColorInput) mouthColorInput.value = this.pet ? this.pet.secondaryColor || '#00ffff' : '#00ffff';
             });
         }
     }
@@ -474,6 +452,17 @@ export default class EditorScene {
         
         // Inicia materialização cyber-alquímica
         this.startMaterialization();
+
+        // Sincroniza valores dos inputs de cor ocultos e dos botões com o pet criado
+        const eyeInput = document.getElementById('eye-color-input');
+        const eyeBtn = document.getElementById('eye-color-btn');
+        const mouthInput = document.getElementById('mouth-color-input');
+        const mouthBtn = document.getElementById('mouth-color-btn');
+
+        if (eyeInput) eyeInput.value = this.pet.eyeColor || this.pet.secondaryColor || '#00ffff';
+        if (eyeBtn) eyeBtn.style.background = this.pet.eyeColor || '';
+        if (mouthInput) mouthInput.value = this.pet.mouthColor || this.pet.secondaryColor || '#00ffff';
+        if (mouthBtn) mouthBtn.style.background = this.pet.mouthColor || '';
     }
     
     /**
