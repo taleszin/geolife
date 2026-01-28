@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // Base URL para desenvolvimento local
-  base: '/',
+  // Base URL - usa variável de ambiente para GitHub Pages
+  base: process.env.GITHUB_PAGES === 'true' ? '/geolife/' : './',
   
   build: {
     outDir: 'dist',

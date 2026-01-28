@@ -146,7 +146,7 @@ export default class HomeScene {
         this.backgroundImage.onload = () => {
             this.backgroundLoaded = true;
         };
-        this.backgroundImage.src = '/background.png';
+        this.backgroundImage.src = './background.png';
         
         // Calcula tamanho responsivo
         this.updateCanvasSize();
