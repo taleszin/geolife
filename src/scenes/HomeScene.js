@@ -1065,34 +1065,44 @@ export default class HomeScene {
             bubble.classList.toggle('typing', isTyping);
             bubble.style.display = 'block';
             
-            // Posição relativa ao canvas (que está dentro do container)
+            // === POSICIONAMENTO ESTILO QUADRINHOS ===
+            // O balão deve ficar exatamente centralizado acima do pet
+            
             const canvasRect = this.canvas.getBoundingClientRect();
             const containerRect = document.getElementById('game-container').getBoundingClientRect();
             
-            // Escala entre coordenadas lógicas e pixels renderizados
-            const scaleX = canvasRect.width / this.canvas.width;
-            const scaleY = canvasRect.height / this.canvas.height;
+            // Escala entre coordenadas lógicas do renderer e pixels da tela
+            // Usa logicalWidth/Height se disponível, senão usa canvas.width/height
+            const logicalW = this.renderer?.logicalWidth || this.canvas.width;
+            const logicalH = this.renderer?.logicalHeight || this.canvas.height;
+            const scaleX = canvasRect.width / logicalW;
+            const scaleY = canvasRect.height / logicalH;
             
-            // Posição do pet em pixels do canvas
-            const petCanvasX = this.pet.x * scaleX;
-            const petCanvasY = this.pet.y * scaleY;
+            // Centro do pet em coordenadas de tela (pixels)
+            const petScreenX = this.pet.x * scaleX;
+            const petScreenY = this.pet.y * scaleY;
             
-            // Offset do canvas dentro do container
+            // Offset do canvas em relação ao container
             const canvasOffsetX = canvasRect.left - containerRect.left;
             const canvasOffsetY = canvasRect.top - containerRect.top;
             
-            // Posição final relativa ao container
-            const petX = canvasOffsetX + petCanvasX;
-            const petY = canvasOffsetY + petCanvasY;
+            // Posição final do centro do pet relativa ao container
+            const petCenterX = canvasOffsetX + petScreenX;
+            const petCenterY = canvasOffsetY + petScreenY;
             
-            // Topo da cabeça (centro - raio)
-            const petRadius = this.pet.size * scaleY;
-            const headTop = petY - petRadius;
+            // Raio do pet escalado (considera squash/stretch)
+            const petRadius = this.pet.size * this.pet.scale * Math.max(scaleX, scaleY);
             
-            // Balão grudado na cabeça
-            bubble.style.left = `${petX}px`;
-            bubble.style.top = `${headTop - 5}px`;
-            bubble.style.transform = 'translate(-50%, -100%)';
+            // Posição do topo da "cabeça" do pet
+            // Adiciona pequena margem para o rabinho do balão
+            const tailGap = 10; // Espaço para o rabinho do balão
+            const bubbleBottomY = petCenterY - petRadius - tailGap;
+            
+            // Centraliza horizontalmente e posiciona na parte inferior do balão
+            bubble.style.left = `${petCenterX}px`;
+            bubble.style.bottom = `${containerRect.height - bubbleBottomY}px`;
+            bubble.style.top = 'auto'; // Remove top para usar bottom
+            bubble.style.transform = 'translateX(-50%)'; // Só centraliza horizontal
         } else if (bubble) {
             bubble.style.display = 'none';
         }
