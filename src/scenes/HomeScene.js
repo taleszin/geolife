@@ -146,7 +146,8 @@ export default class HomeScene {
         this.backgroundImage.onload = () => {
             this.backgroundLoaded = true;
         };
-        this.backgroundImage.src = './background.png';
+        // Usa BASE_URL do Vite para funcionar em qualquer deploy
+        this.backgroundImage.src = `${import.meta.env.BASE_URL}background.png`;
         
         // Calcula tamanho responsivo
         this.updateCanvasSize();
