@@ -110,13 +110,21 @@ export default class EditorScene {
             </div>
             
             <div class="editor-section">
-                <h3>OLHOS</h3>
+                <h3>OLHOS <button class="rainbow-btn" id="eye-color-btn" title="Cor customizada"></button></h3>
                 <div class="option-row" id="eye-options"></div>
+                <div class="color-picker-container" id="eye-color-picker" style="display:none;">
+                    <input type="color" id="eye-color-input" value="#00ffff">
+                    <button class="color-reset-btn" id="eye-color-reset">✕ Resetar</button>
+                </div>
             </div>
             
             <div class="editor-section">
-                <h3>BOCA</h3>
+                <h3>BOCA <button class="rainbow-btn" id="mouth-color-btn" title="Cor customizada"></button></h3>
                 <div class="option-row" id="mouth-options"></div>
+                <div class="color-picker-container" id="mouth-color-picker" style="display:none;">
+                    <input type="color" id="mouth-color-input" value="#00ffff">
+                    <button class="color-reset-btn" id="mouth-color-reset">✕ Resetar</button>
+                </div>
             </div>
             
             <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
@@ -246,6 +254,9 @@ export default class EditorScene {
             });
         }
         
+        // ═══ SISTEMA ARCO-ÍRIS - Seletores de Cor RGB ═══
+        this.bindColorPickers();
+        
         // Canvas mouse move for eye tracking
         this.canvas.addEventListener('mousemove', (e) => {
             const rect = this.canvas.getBoundingClientRect();
@@ -253,6 +264,79 @@ export default class EditorScene {
             const y = e.clientY - rect.top;
             this.pet.lookAt(x, y);
         });
+    }
+    
+    /**
+     * Sistema Arco-Íris - Configura seletores de cores RGB customizadas
+     */
+    bindColorPickers() {
+        // Botão de cor dos olhos
+        const eyeColorBtn = document.getElementById('eye-color-btn');
+        const eyeColorPicker = document.getElementById('eye-color-picker');
+        const eyeColorInput = document.getElementById('eye-color-input');
+        const eyeColorReset = document.getElementById('eye-color-reset');
+        
+        // Botão de cor da boca
+        const mouthColorBtn = document.getElementById('mouth-color-btn');
+        const mouthColorPicker = document.getElementById('mouth-color-picker');
+        const mouthColorInput = document.getElementById('mouth-color-input');
+        const mouthColorReset = document.getElementById('mouth-color-reset');
+        
+        // Toggle picker dos olhos
+        if (eyeColorBtn) {
+            eyeColorBtn.addEventListener('click', () => {
+                UISoundSystem.playSelect();
+                const isVisible = eyeColorPicker.style.display !== 'none';
+                eyeColorPicker.style.display = isVisible ? 'none' : 'flex';
+                eyeColorBtn.classList.toggle('active', !isVisible);
+            });
+        }
+        
+        // Input de cor dos olhos
+        if (eyeColorInput) {
+            eyeColorInput.addEventListener('input', (e) => {
+                this.pet.eyeColor = e.target.value;
+                eyeColorBtn.style.background = e.target.value;
+            });
+        }
+        
+        // Reset cor dos olhos
+        if (eyeColorReset) {
+            eyeColorReset.addEventListener('click', () => {
+                UISoundSystem.playSelect();
+                this.pet.eyeColor = null;
+                eyeColorBtn.style.background = '';
+                eyeColorInput.value = this.pet.secondaryColor || '#00ffff';
+            });
+        }
+        
+        // Toggle picker da boca
+        if (mouthColorBtn) {
+            mouthColorBtn.addEventListener('click', () => {
+                UISoundSystem.playSelect();
+                const isVisible = mouthColorPicker.style.display !== 'none';
+                mouthColorPicker.style.display = isVisible ? 'none' : 'flex';
+                mouthColorBtn.classList.toggle('active', !isVisible);
+            });
+        }
+        
+        // Input de cor da boca
+        if (mouthColorInput) {
+            mouthColorInput.addEventListener('input', (e) => {
+                this.pet.mouthColor = e.target.value;
+                mouthColorBtn.style.background = e.target.value;
+            });
+        }
+        
+        // Reset cor da boca
+        if (mouthColorReset) {
+            mouthColorReset.addEventListener('click', () => {
+                UISoundSystem.playSelect();
+                this.pet.mouthColor = null;
+                mouthColorBtn.style.background = '';
+                mouthColorInput.value = this.pet.secondaryColor || '#00ffff';
+            });
+        }
     }
     
     onOptionClick(e) {

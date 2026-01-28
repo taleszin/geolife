@@ -8,6 +8,39 @@ import { SHAPES_MAP } from '../data/shapes.js';
 import { MATERIALS_MAP, getMaterialById } from '../data/materials.js';
 import { materialRenderer } from '../systems/MaterialRenderer.js';
 
+// ═══════════════════════════════════════════════════════════════════
+// SISTEMA DE HUMOR - Estados emocionais baseados nas estatísticas
+// ═══════════════════════════════════════════════════════════════════
+export const MOOD_TYPES = {
+    ECSTATIC: 'ecstatic',       // Eufórico (stats muito altos)
+    HAPPY: 'happy',             // Feliz (stats bons)
+    CONTENT: 'content',         // Contente (stats OK)
+    NEUTRAL: 'neutral',         // Neutro
+    BORED: 'bored',             // Entediado (energia baixa, resto OK)
+    CONFUSED: 'confused',       // Confuso (stats misturados)
+    THOUGHTFUL: 'thoughtful',   // Pensativo (energia alta, felicidade baixa)
+    SAD: 'sad',                 // Triste (felicidade baixa)
+    HUNGRY: 'hungry',           // Faminto (fome baixa)
+    TIRED: 'tired',             // Cansado (energia baixa)
+    ANGRY: 'angry',             // Raivoso (maltratado recentemente)
+    DYING: 'dying'              // Morrendo (todos stats críticos)
+};
+
+export const MOOD_LABELS = {
+    [MOOD_TYPES.ECSTATIC]: '✨ Eufórico!',
+    [MOOD_TYPES.HAPPY]: '😊 Feliz',
+    [MOOD_TYPES.CONTENT]: '🙂 Contente',
+    [MOOD_TYPES.NEUTRAL]: '😐 Neutro',
+    [MOOD_TYPES.BORED]: '😑 Entediado',
+    [MOOD_TYPES.CONFUSED]: '😕 Confuso',
+    [MOOD_TYPES.THOUGHTFUL]: '🤔 Pensativo',
+    [MOOD_TYPES.SAD]: '😢 Triste',
+    [MOOD_TYPES.HUNGRY]: '🍽️ Faminto',
+    [MOOD_TYPES.TIRED]: '😴 Cansado',
+    [MOOD_TYPES.ANGRY]: '😠 Irritado',
+    [MOOD_TYPES.DYING]: '💀 Crítico'
+};
+
 export default class GeoPet {
     constructor(config = {}) {
         // ═══════════════════════════════════════════════════════════════════
@@ -24,6 +57,13 @@ export default class GeoPet {
         const material = getMaterialById(this.materialId);
         this.primaryColor = config.primaryColor || material.palette.glow;
         this.secondaryColor = config.secondaryColor || material.palette.core;
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // CORES CUSTOMIZÁVEIS (Sistema Arco-Íris)
+        // Permite cores independentes para olhos e boca
+        // ═══════════════════════════════════════════════════════════════════
+        this.eyeColor = config.eyeColor || null;     // null = usa secondaryColor
+        this.mouthColor = config.mouthColor || null; // null = usa secondaryColor
         
         // ═══════════════════════════════════════════════════════════════════
         // POSIÇÃO E TRANSFORMAÇÕES
@@ -57,6 +97,14 @@ export default class GeoPet {
             happiness: 0.2, // Perde 0.2 de felicidade por segundo
             energy: 0.1     // Perde 0.1 de energia por segundo
         };
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE HUMOR
+        // ═══════════════════════════════════════════════════════════════════
+        this.currentMood = MOOD_TYPES.HAPPY;
+        this.moodTimer = 0;             // Para transições suaves
+        this.recentMistreatment = 0;    // Contador de maus tratos recentes
+        this.mistreatmentDecay = 0;     // Timer para decay do contador
         
         // ═══════════════════════════════════════════════════════════════════
         // SISTEMA DE EXPRESSÕES (Baseado no Golem.js)
@@ -136,8 +184,8 @@ export default class GeoPet {
         // Atualiza stats
         this.updateStats(dt);
         
-        // Atualiza mood baseado nos stats
-        this.updateMood();
+        // Atualiza mood baseado nos stats (SISTEMA EXPANDIDO)
+        this.updateMood(dt);
         
         // Atualiza expressões faciais
         this.updateExpression();
@@ -177,28 +225,110 @@ export default class GeoPet {
         } else {
             this.speed = 1.5;
         }
+        
+        // Decai contador de maus tratos
+        if (this.recentMistreatment > 0) {
+            this.mistreatmentDecay += dt;
+            if (this.mistreatmentDecay > 30) { // 30 segundos para esquecer
+                this.recentMistreatment = Math.max(0, this.recentMistreatment - 1);
+                this.mistreatmentDecay = 0;
+            }
+        }
     }
     
-    updateMood() {
-        // Ação temporária tem prioridade
+    /**
+     * Sistema de Humor expandido - calcula mood baseado em múltiplos fatores
+     */
+    updateMood(dt = 0) {
+        // Ação temporária tem prioridade sobre mood
         if (this.expressionState.action && Date.now() < this.expressionState.actionTimer) {
             return;
         } else {
             this.expressionState.action = null;
         }
         
-        // Calcula mood baseado na média dos stats
-        const avgStats = (this.hunger + this.happiness + this.energy) / 3;
+        // Calcula novo mood baseado nos stats
+        const newMood = this.calculateMood();
         
-        if (avgStats > 70) {
-            this.expressionState.mood = 'happy';
-        } else if (avgStats > 40) {
-            this.expressionState.mood = 'neutral';
-        } else if (avgStats > 15) {
-            this.expressionState.mood = 'sad';
-        } else {
-            this.expressionState.mood = 'dying';
-        }
+        // Atualiza mood atual
+        this.currentMood = newMood;
+        
+        // Mapeia para expressionState.mood legado (para compatibilidade)
+        this.expressionState.mood = this.moodToLegacy(newMood);
+    }
+    
+    /**
+     * Calcula o humor baseado nas estatísticas e eventos recentes
+     */
+    calculateMood() {
+        const h = this.hunger;
+        const hp = this.happiness;
+        const e = this.energy;
+        const avg = (h + hp + e) / 3;
+        
+        // Prioridade 1: Estados críticos
+        if (avg < 15) return MOOD_TYPES.DYING;
+        
+        // Prioridade 2: Maltratado recentemente
+        if (this.recentMistreatment >= 3) return MOOD_TYPES.ANGRY;
+        
+        // Prioridade 3: Estados de necessidade específica
+        if (h < 25 && hp > 40) return MOOD_TYPES.HUNGRY;
+        if (e < 25 && hp > 40) return MOOD_TYPES.TIRED;
+        
+        // Prioridade 4: Estados emocionais
+        if (hp < 30) return MOOD_TYPES.SAD;
+        
+        // Prioridade 5: Estados positivos
+        if (avg > 85) return MOOD_TYPES.ECSTATIC;
+        if (avg > 70) return MOOD_TYPES.HAPPY;
+        if (avg > 55) return MOOD_TYPES.CONTENT;
+        
+        // Prioridade 6: Estados especiais
+        if (e > 70 && hp < 50) return MOOD_TYPES.THOUGHTFUL;
+        if (e < 40 && hp > 50 && h > 50) return MOOD_TYPES.BORED;
+        
+        // Estados de confusão (stats muito desbalanceados)
+        const variance = Math.abs(h - hp) + Math.abs(hp - e) + Math.abs(e - h);
+        if (variance > 100) return MOOD_TYPES.CONFUSED;
+        
+        return MOOD_TYPES.NEUTRAL;
+    }
+    
+    /**
+     * Converte novo sistema de mood para o legado
+     */
+    moodToLegacy(mood) {
+        const mapping = {
+            [MOOD_TYPES.ECSTATIC]: 'happy',
+            [MOOD_TYPES.HAPPY]: 'happy',
+            [MOOD_TYPES.CONTENT]: 'happy',
+            [MOOD_TYPES.NEUTRAL]: 'neutral',
+            [MOOD_TYPES.BORED]: 'neutral',
+            [MOOD_TYPES.CONFUSED]: 'neutral',
+            [MOOD_TYPES.THOUGHTFUL]: 'neutral',
+            [MOOD_TYPES.SAD]: 'sad',
+            [MOOD_TYPES.HUNGRY]: 'sad',
+            [MOOD_TYPES.TIRED]: 'sad',
+            [MOOD_TYPES.ANGRY]: 'sad',
+            [MOOD_TYPES.DYING]: 'dying'
+        };
+        return mapping[mood] || 'neutral';
+    }
+    
+    /**
+     * Retorna o label do humor atual para exibição na UI
+     */
+    getMoodLabel() {
+        return MOOD_LABELS[this.currentMood] || '😐 Neutro';
+    }
+    
+    /**
+     * Registra mau trato (chamado por ações negativas)
+     */
+    registerMistreatment() {
+        this.recentMistreatment++;
+        this.mistreatmentDecay = 0;
     }
     
     updateExpression() {
@@ -906,36 +1036,93 @@ export default class GeoPet {
         const fox = this.faceParams.focusOffset.x;
         const foy = this.faceParams.focusOffset.y;
         
+        // Usa cor customizada se definida, senão usa secondaryColor
+        const eyeCol = this.eyeColor || this.secondaryColor;
+        
         if (this.isBlinking) {
             // Olhos fechados - linhas horizontais
             const lineY = eyeY;
-            renderer.drawLine(cx - eyeSpacing - 4 * s, lineY, cx - eyeSpacing + 4 * s, lineY, this.secondaryColor);
-            renderer.drawLine(cx + eyeSpacing - 4 * s, lineY, cx + eyeSpacing + 4 * s, lineY, this.secondaryColor);
+            renderer.drawLine(cx - eyeSpacing - 4 * s, lineY, cx - eyeSpacing + 4 * s, lineY, eyeCol);
+            renderer.drawLine(cx + eyeSpacing - 4 * s, lineY, cx + eyeSpacing + 4 * s, lineY, eyeCol);
             return;
         }
         
         const openness = this.faceParams.eyeOpenness;
         const pupilSize = this.faceParams.pupilSize;
         
+        // Fator de reação baseado no mood e ação atual
+        const moodReaction = this.getMoodReactionFactor();
+        
         switch (this.eyeType) {
             case 'circle':
-                this.drawCircleEyes(renderer, cx, eyeY, eyeSpacing, s, openness, pupilSize, fox, foy);
+                this.drawCircleEyes(renderer, cx, eyeY, eyeSpacing, s, openness, pupilSize, fox, foy, eyeCol);
                 break;
             case 'dot':
-                this.drawDotEyes(renderer, cx, eyeY, eyeSpacing, s, openness, fox, foy);
+                this.drawDotEyes(renderer, cx, eyeY, eyeSpacing, s, openness, fox, foy, eyeCol);
                 break;
             case 'pixel':
-                this.drawPixelEyes(renderer, cx, eyeY, eyeSpacing, s, openness, fox, foy);
+                this.drawPixelEyes(renderer, cx, eyeY, eyeSpacing, s, openness, fox, foy, eyeCol);
                 break;
             case 'slit':
-                this.drawSlitEyes(renderer, cx, eyeY, eyeSpacing, s, openness, fox, foy);
+                this.drawSlitEyes(renderer, cx, eyeY, eyeSpacing, s, openness, fox, foy, eyeCol);
+                break;
+            // ═══ NOVOS TIPOS DE OLHOS ═══
+            case 'cyber':
+                this.drawCyberEyes(renderer, cx, eyeY, eyeSpacing, s, openness, moodReaction, eyeCol);
+                break;
+            case 'spiral':
+                this.drawSpiralEyes(renderer, cx, eyeY, eyeSpacing, s, openness, moodReaction, eyeCol);
+                break;
+            case 'void':
+                this.drawVoidEyes(renderer, cx, eyeY, eyeSpacing, s, openness, fox, foy, eyeCol);
+                break;
+            case 'compound':
+                this.drawCompoundEyes(renderer, cx, eyeY, eyeSpacing, s, openness, moodReaction, eyeCol);
+                break;
+            case 'cross':
+                this.drawCrossEyes(renderer, cx, eyeY, eyeSpacing, s, openness, fox, foy, eyeCol);
+                break;
+            case 'star':
+                this.drawStarEyes(renderer, cx, eyeY, eyeSpacing, s, openness, moodReaction, eyeCol);
+                break;
+            case 'glitch':
+                this.drawGlitchEyes(renderer, cx, eyeY, eyeSpacing, s, openness, moodReaction, eyeCol);
+                break;
+            case 'heart':
+                this.drawHeartEyes(renderer, cx, eyeY, eyeSpacing, s, openness, moodReaction, eyeCol);
                 break;
             default:
-                this.drawCircleEyes(renderer, cx, eyeY, eyeSpacing, s, openness, pupilSize, fox, foy);
+                this.drawCircleEyes(renderer, cx, eyeY, eyeSpacing, s, openness, pupilSize, fox, foy, eyeCol);
         }
     }
     
-    drawCircleEyes(renderer, cx, cy, spacing, s, openness, pupilSize, fox, foy) {
+    /**
+     * Retorna um fator de reação baseado no mood e ação atual
+     * Usado para fazer os olhos reagirem diferentemente em cada estado
+     */
+    getMoodReactionFactor() {
+        const action = this.expressionState.action;
+        const mood = this.currentMood;
+        
+        // Ação temporária tem prioridade
+        if (action === 'shocked') return { speed: 3, intensity: 1.5, shake: 0.5 };
+        if (action === 'frozen') return { speed: 0.2, intensity: 0.5, shake: 0.8 };
+        if (action === 'tickled') return { speed: 2, intensity: 1.2, shake: 0.3 };
+        if (action === 'mutating') return { speed: 4, intensity: 2, shake: 1 };
+        
+        // Baseado no mood
+        switch (mood) {
+            case MOOD_TYPES.ECSTATIC: return { speed: 1.5, intensity: 1.3, shake: 0 };
+            case MOOD_TYPES.HAPPY: return { speed: 1.2, intensity: 1.1, shake: 0 };
+            case MOOD_TYPES.SAD: return { speed: 0.5, intensity: 0.7, shake: 0 };
+            case MOOD_TYPES.ANGRY: return { speed: 1.8, intensity: 1.4, shake: 0.2 };
+            case MOOD_TYPES.TIRED: return { speed: 0.3, intensity: 0.6, shake: 0 };
+            case MOOD_TYPES.DYING: return { speed: 0.2, intensity: 0.4, shake: 0.4 };
+            default: return { speed: 1, intensity: 1, shake: 0 };
+        }
+    }
+    
+    drawCircleEyes(renderer, cx, cy, spacing, s, openness, pupilSize, fox, foy, eyeCol) {
         const eyeRadius = 5 * s * openness;
         const pupilR = 2 * s * pupilSize;
         const irisR = 3.5 * s;
@@ -949,14 +1136,14 @@ export default class GeoPet {
         renderer.fillCircle(rightX, cy, eyeRadius, '#ffffff');
         
         // Contorno
-        renderer.drawCircle(leftX, cy, eyeRadius, this.secondaryColor);
-        renderer.drawCircle(rightX, cy, eyeRadius, this.secondaryColor);
+        renderer.drawCircle(leftX, cy, eyeRadius, eyeCol);
+        renderer.drawCircle(rightX, cy, eyeRadius, eyeCol);
         
         // Íris (segue o foco)
         const irisOffsetX = fox * 1.5;
         const irisOffsetY = foy * 1.5;
-        renderer.fillCircle(leftX + irisOffsetX, cy + irisOffsetY, irisR, this.secondaryColor);
-        renderer.fillCircle(rightX + irisOffsetX, cy + irisOffsetY, irisR, this.secondaryColor);
+        renderer.fillCircle(leftX + irisOffsetX, cy + irisOffsetY, irisR, eyeCol);
+        renderer.fillCircle(rightX + irisOffsetX, cy + irisOffsetY, irisR, eyeCol);
         
         // Pupila
         renderer.fillCircle(leftX + irisOffsetX, cy + irisOffsetY, pupilR, '#000000');
@@ -968,7 +1155,7 @@ export default class GeoPet {
         renderer.fillCircle(rightX - 1.5 * s + irisOffsetX * 0.3, cy - 1.5 * s + irisOffsetY * 0.3, highlightR, '#ffffff');
     }
     
-    drawDotEyes(renderer, cx, cy, spacing, s, openness, fox, foy) {
+    drawDotEyes(renderer, cx, cy, spacing, s, openness, fox, foy, eyeCol) {
         const dotRadius = 4 * s * openness;
         
         const leftX = cx - spacing + fox;
@@ -980,15 +1167,15 @@ export default class GeoPet {
         renderer.fillCircle(rightX + 1, eyeY + 1, dotRadius, '#000000');
         
         // Ponto principal
-        renderer.fillCircle(leftX, eyeY, dotRadius, this.secondaryColor);
-        renderer.fillCircle(rightX, eyeY, dotRadius, this.secondaryColor);
+        renderer.fillCircle(leftX, eyeY, dotRadius, eyeCol);
+        renderer.fillCircle(rightX, eyeY, dotRadius, eyeCol);
         
         // Brilho
         renderer.fillCircle(leftX - 1.5 * s, eyeY - 1.5 * s, dotRadius * 0.35, '#ffffff');
         renderer.fillCircle(rightX - 1.5 * s, eyeY - 1.5 * s, dotRadius * 0.35, '#ffffff');
     }
     
-    drawPixelEyes(renderer, cx, cy, spacing, s, openness, fox, foy) {
+    drawPixelEyes(renderer, cx, cy, spacing, s, openness, fox, foy, eyeCol) {
         const eyeW = 8 * s;
         const eyeH = 6 * s * openness;
         
@@ -1001,22 +1188,22 @@ export default class GeoPet {
         renderer.fillRect(rightX, eyeY, eyeW, eyeH, '#ffffff');
         
         // Contorno
-        renderer.drawRect(leftX, eyeY, eyeW, eyeH, this.secondaryColor);
-        renderer.drawRect(rightX, eyeY, eyeW, eyeH, this.secondaryColor);
+        renderer.drawRect(leftX, eyeY, eyeW, eyeH, eyeCol);
+        renderer.drawRect(rightX, eyeY, eyeW, eyeH, eyeCol);
         
         // Pupila pixel
         const pixelSize = 3 * s;
         const pupilX = fox * 1.5;
         const pupilY = foy * 1.5;
-        renderer.fillRect(leftX + eyeW / 2 - pixelSize / 2 + pupilX, cy - pixelSize / 2 + pupilY, pixelSize, pixelSize, this.secondaryColor);
-        renderer.fillRect(rightX + eyeW / 2 - pixelSize / 2 + pupilX, cy - pixelSize / 2 + pupilY, pixelSize, pixelSize, this.secondaryColor);
+        renderer.fillRect(leftX + eyeW / 2 - pixelSize / 2 + pupilX, cy - pixelSize / 2 + pupilY, pixelSize, pixelSize, eyeCol);
+        renderer.fillRect(rightX + eyeW / 2 - pixelSize / 2 + pupilX, cy - pixelSize / 2 + pupilY, pixelSize, pixelSize, eyeCol);
         
         // Highlight
         renderer.fillRect(leftX + 1, eyeY + 1, 2 * s, 2 * s, '#ffffff');
         renderer.fillRect(rightX + 1, eyeY + 1, 2 * s, 2 * s, '#ffffff');
     }
     
-    drawSlitEyes(renderer, cx, cy, spacing, s, openness, fox, foy) {
+    drawSlitEyes(renderer, cx, cy, spacing, s, openness, fox, foy, eyeCol) {
         const eyeW = 5 * s;
         const eyeH = 7 * s * openness;
         
@@ -1024,8 +1211,8 @@ export default class GeoPet {
         const rightX = cx + spacing;
         
         // Fundo do olho (elipse colorida)
-        renderer.fillEllipse(leftX, cy, eyeW, eyeH, this.secondaryColor);
-        renderer.fillEllipse(rightX, cy, eyeW, eyeH, this.secondaryColor);
+        renderer.fillEllipse(leftX, cy, eyeW, eyeH, eyeCol);
+        renderer.fillEllipse(rightX, cy, eyeW, eyeH, eyeCol);
         
         // Fenda vertical (pupila)
         const slitW = 2;
@@ -1038,28 +1225,328 @@ export default class GeoPet {
         renderer.fillCircle(rightX - 2 * s, cy - 2 * s, 1.5 * s, '#ffffff');
     }
     
-    drawMouth(renderer, cx, cy, s) {
-        const curve = this.faceParams.mouthCurve;
+    // ═══════════════════════════════════════════════════════════════════
+    // NOVOS TIPOS DE OLHOS
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Olhos Cyber - Visor horizontal pulsante
+     */
+    drawCyberEyes(renderer, cx, cy, spacing, s, openness, reaction, eyeCol) {
+        const visorW = 16 * s;
+        const visorH = 4 * s * openness;
         
-        switch (this.mouthType) {
-            case 'simple':
-                this.drawSimpleMouth(renderer, cx, cy, s, curve);
-                break;
-            case 'cat':
-                this.drawCatMouth(renderer, cx, cy, s, curve);
-                break;
-            case 'pixel':
-                this.drawPixelMouth(renderer, cx, cy, s, curve);
-                break;
-            case 'kawaii':
-                this.drawKawaiiMouth(renderer, cx, cy, s, curve);
-                break;
-            default:
-                this.drawSimpleMouth(renderer, cx, cy, s, curve);
+        // Pulso baseado no tempo e reação
+        const pulse = Math.sin(Date.now() * 0.005 * reaction.speed) * 0.3 + 0.7;
+        const { r, g, b } = renderer.hexToRgb(eyeCol);
+        
+        // Visor principal (uma barra horizontal)
+        const visorX = cx - visorW / 2;
+        const visorY = cy - visorH / 2;
+        
+        // Glow de fundo
+        renderer.fillRect(visorX - 2, visorY - 2, visorW + 4, visorH + 4, '#000000');
+        
+        // Barra principal com alpha pulsante
+        for (let x = 0; x < visorW; x++) {
+            const scanline = Math.sin((x / visorW) * Math.PI * 4 + Date.now() * 0.01 * reaction.speed);
+            const alpha = Math.floor(150 + 100 * pulse * (0.5 + scanline * 0.5));
+            for (let y = 0; y < visorH; y++) {
+                renderer.setPixelBlend(visorX + x, visorY + y, r, g, b, alpha);
+            }
+        }
+        
+        // Linhas de scan horizontais
+        renderer.drawLine(visorX, visorY, visorX + visorW, visorY, eyeCol);
+        renderer.drawLine(visorX, visorY + visorH, visorX + visorW, visorY + visorH, eyeCol);
+    }
+    
+    /**
+     * Olhos Espiral - Hipnose giratória (gira mais rápido em choque)
+     */
+    drawSpiralEyes(renderer, cx, cy, spacing, s, openness, reaction, eyeCol) {
+        const radius = 5 * s * openness;
+        const leftX = cx - spacing;
+        const rightX = cx + spacing;
+        
+        // Velocidade de rotação baseada no estado
+        const rotation = Date.now() * 0.003 * reaction.speed;
+        
+        // Desenha espirais
+        this.drawSpiral(renderer, leftX, cy, radius, rotation, eyeCol, reaction.intensity);
+        this.drawSpiral(renderer, rightX, cy, radius, -rotation, eyeCol, reaction.intensity);
+    }
+    
+    drawSpiral(renderer, cx, cy, radius, rotation, color, intensity) {
+        const { r, g, b } = renderer.hexToRgb(color);
+        const turns = 2.5 * intensity;
+        
+        for (let t = 0; t < turns * Math.PI * 2; t += 0.1) {
+            const dist = (t / (turns * Math.PI * 2)) * radius;
+            const x = cx + Math.cos(t + rotation) * dist;
+            const y = cy + Math.sin(t + rotation) * dist;
+            const alpha = Math.floor(200 * (1 - t / (turns * Math.PI * 2)));
+            renderer.setPixelBlend(x, y, r, g, b, alpha);
         }
     }
     
-    drawSimpleMouth(renderer, cx, cy, s, curve) {
+    /**
+     * Olhos Vazio - Órbitas vazias com ponto de luz central
+     */
+    drawVoidEyes(renderer, cx, cy, spacing, s, openness, fox, foy, eyeCol) {
+        const radius = 6 * s * openness;
+        const leftX = cx - spacing;
+        const rightX = cx + spacing;
+        
+        // Órbitas vazias (círculos escuros)
+        renderer.fillCircle(leftX, cy, radius, '#0a0a0f');
+        renderer.fillCircle(rightX, cy, radius, '#0a0a0f');
+        
+        // Contorno brilhante
+        renderer.drawCircle(leftX, cy, radius, eyeCol);
+        renderer.drawCircle(rightX, cy, radius, eyeCol);
+        renderer.drawCircle(leftX, cy, radius - 1, eyeCol);
+        renderer.drawCircle(rightX, cy, radius - 1, eyeCol);
+        
+        // Ponto de luz central flutuante
+        const pulse = Math.sin(Date.now() * 0.003) * 1.5;
+        const lightR = 1.5 * s;
+        renderer.fillCircle(leftX + fox * 0.5 + pulse, cy + foy * 0.5, lightR, eyeCol);
+        renderer.fillCircle(rightX + fox * 0.5 - pulse, cy + foy * 0.5, lightR, eyeCol);
+        
+        // Glow ao redor do ponto
+        renderer.drawCircle(leftX + fox * 0.5 + pulse, cy + foy * 0.5, lightR + 2, eyeCol);
+        renderer.drawCircle(rightX + fox * 0.5 - pulse, cy + foy * 0.5, lightR + 2, eyeCol);
+    }
+    
+    /**
+     * Olhos Compostos - Múltiplos pixels como olho de inseto
+     */
+    drawCompoundEyes(renderer, cx, cy, spacing, s, openness, reaction, eyeCol) {
+        const leftX = cx - spacing;
+        const rightX = cx + spacing;
+        const pixelSize = 2 * s;
+        const gridSize = 3; // 3x3 grid
+        
+        const { r, g, b } = renderer.hexToRgb(eyeCol);
+        
+        // Desenha grid de hexágonos/pixels
+        for (let eye of [leftX, rightX]) {
+            for (let gx = -1; gx <= 1; gx++) {
+                for (let gy = -1; gy <= 1; gy++) {
+                    const px = eye + gx * pixelSize * 1.2;
+                    const py = cy + gy * pixelSize * 1.2 * openness;
+                    
+                    // Cada célula pisca independentemente
+                    const phase = (gx + 2) * (gy + 2) + Date.now() * 0.002 * reaction.speed;
+                    const brightness = Math.sin(phase) * 0.3 + 0.7;
+                    const alpha = Math.floor(255 * brightness * reaction.intensity);
+                    
+                    renderer.fillCircle(px, py, pixelSize * 0.6, '#000000');
+                    this.drawHexagon(renderer, px, py, pixelSize * 0.5, r, g, b, alpha);
+                }
+            }
+        }
+    }
+    
+    drawHexagon(renderer, cx, cy, size, r, g, b, a) {
+        for (let i = 0; i < 6; i++) {
+            const angle1 = (i / 6) * Math.PI * 2;
+            const angle2 = ((i + 1) / 6) * Math.PI * 2;
+            const x1 = cx + Math.cos(angle1) * size;
+            const y1 = cy + Math.sin(angle1) * size;
+            const x2 = cx + Math.cos(angle2) * size;
+            const y2 = cy + Math.sin(angle2) * size;
+            this.drawLineRgba(renderer, x1, y1, x2, y2, r, g, b, a);
+        }
+    }
+    
+    /**
+     * Olhos Cruz - Formato de mira/cruz
+     */
+    drawCrossEyes(renderer, cx, cy, spacing, s, openness, fox, foy, eyeCol) {
+        const size = 5 * s * openness;
+        const leftX = cx - spacing + fox * 0.5;
+        const rightX = cx + spacing + fox * 0.5;
+        const eyeY = cy + foy * 0.5;
+        
+        // Cruz esquerda
+        renderer.drawLine(leftX - size, eyeY, leftX + size, eyeY, eyeCol);
+        renderer.drawLine(leftX, eyeY - size, leftX, eyeY + size, eyeCol);
+        renderer.drawCircle(leftX, eyeY, size * 0.6, eyeCol);
+        
+        // Cruz direita
+        renderer.drawLine(rightX - size, eyeY, rightX + size, eyeY, eyeCol);
+        renderer.drawLine(rightX, eyeY - size, rightX, eyeY + size, eyeCol);
+        renderer.drawCircle(rightX, eyeY, size * 0.6, eyeCol);
+        
+        // Ponto central
+        renderer.fillCircle(leftX, eyeY, 1.5 * s, eyeCol);
+        renderer.fillCircle(rightX, eyeY, 1.5 * s, eyeCol);
+    }
+    
+    /**
+     * Olhos Estrela - Brilhantes estilo anime
+     */
+    drawStarEyes(renderer, cx, cy, spacing, s, openness, reaction, eyeCol) {
+        const radius = 6 * s * openness;
+        const leftX = cx - spacing;
+        const rightX = cx + spacing;
+        
+        // Rotação e escala baseadas na reação
+        const rot = Date.now() * 0.001 * reaction.speed;
+        const scale = 0.8 + Math.sin(Date.now() * 0.005 * reaction.speed) * 0.2 * reaction.intensity;
+        
+        // Desenha estrelas
+        this.drawStar(renderer, leftX, cy, radius * scale, 5, rot, eyeCol);
+        this.drawStar(renderer, rightX, cy, radius * scale, 5, -rot, eyeCol);
+        
+        // Centro brilhante
+        renderer.fillCircle(leftX, cy, radius * 0.3, '#ffffff');
+        renderer.fillCircle(rightX, cy, radius * 0.3, '#ffffff');
+    }
+    
+    drawStar(renderer, cx, cy, radius, points, rotation, color) {
+        const { r, g, b } = renderer.hexToRgb(color);
+        const innerRadius = radius * 0.4;
+        
+        for (let i = 0; i < points * 2; i++) {
+            const angle1 = (i / (points * 2)) * Math.PI * 2 + rotation;
+            const angle2 = ((i + 1) / (points * 2)) * Math.PI * 2 + rotation;
+            const r1 = i % 2 === 0 ? radius : innerRadius;
+            const r2 = (i + 1) % 2 === 0 ? radius : innerRadius;
+            
+            const x1 = cx + Math.cos(angle1) * r1;
+            const y1 = cy + Math.sin(angle1) * r1;
+            const x2 = cx + Math.cos(angle2) * r2;
+            const y2 = cy + Math.sin(angle2) * r2;
+            
+            this.drawLineRgba(renderer, x1, y1, x2, y2, r, g, b, 255);
+        }
+    }
+    
+    /**
+     * Olhos Glitch - Efeito de interferência digital
+     */
+    drawGlitchEyes(renderer, cx, cy, spacing, s, openness, reaction, eyeCol) {
+        const size = 5 * s * openness;
+        const leftX = cx - spacing;
+        const rightX = cx + spacing;
+        const { r, g, b } = renderer.hexToRgb(eyeCol);
+        
+        // Offset de glitch baseado na reação
+        const glitchX = (Math.random() - 0.5) * 4 * reaction.shake;
+        const glitchY = (Math.random() - 0.5) * 2 * reaction.shake;
+        
+        // Múltiplas camadas deslocadas (RGB split)
+        // Canal vermelho
+        renderer.fillRect(leftX - size + glitchX, cy - size * 0.6, size * 2, size * 1.2 * openness, '#ff000066');
+        renderer.fillRect(rightX - size + glitchX, cy - size * 0.6, size * 2, size * 1.2 * openness, '#ff000066');
+        
+        // Canal verde
+        renderer.fillRect(leftX - size - glitchX, cy - size * 0.6 + glitchY, size * 2, size * 1.2 * openness, '#00ff0066');
+        renderer.fillRect(rightX - size - glitchX, cy - size * 0.6 + glitchY, size * 2, size * 1.2 * openness, '#00ff0066');
+        
+        // Canal azul / cor principal
+        renderer.fillRect(leftX - size, cy - size * 0.6 - glitchY, size * 2, size * 1.2 * openness, eyeCol);
+        renderer.fillRect(rightX - size, cy - size * 0.6 - glitchY, size * 2, size * 1.2 * openness, eyeCol);
+        
+        // Linhas de scan aleatórias
+        if (Math.random() > 0.7) {
+            const scanY = cy + (Math.random() - 0.5) * size * 2;
+            renderer.drawLine(cx - 30 * s, scanY, cx + 30 * s, scanY, '#ffffff44');
+        }
+    }
+    
+    /**
+     * Olhos Coração - Apaixonados
+     */
+    drawHeartEyes(renderer, cx, cy, spacing, s, openness, reaction, eyeCol) {
+        const size = 5 * s * openness * reaction.intensity;
+        const leftX = cx - spacing;
+        const rightX = cx + spacing;
+        
+        // Pulso de amor
+        const pulse = Math.sin(Date.now() * 0.008 * reaction.speed) * 0.15 + 1;
+        
+        this.drawHeart(renderer, leftX, cy, size * pulse, eyeCol);
+        this.drawHeart(renderer, rightX, cy, size * pulse, eyeCol);
+    }
+    
+    drawHeart(renderer, cx, cy, size, color) {
+        const { r, g, b } = renderer.hexToRgb(color);
+        
+        // Desenha coração usando curvas paramétricas
+        for (let t = 0; t < Math.PI * 2; t += 0.05) {
+            const x = 16 * Math.pow(Math.sin(t), 3);
+            const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+            
+            const px = cx + (x / 16) * size;
+            const py = cy + (y / 16) * size;
+            
+            renderer.setPixelBlend(px, py, r, g, b, 255);
+            renderer.setPixelBlend(px + 1, py, r, g, b, 200);
+            renderer.setPixelBlend(px - 1, py, r, g, b, 200);
+        }
+        
+        // Preenchimento simples
+        renderer.fillCircle(cx - size * 0.3, cy - size * 0.1, size * 0.4, color);
+        renderer.fillCircle(cx + size * 0.3, cy - size * 0.1, size * 0.4, color);
+    }
+    
+    drawMouth(renderer, cx, cy, s) {
+        const curve = this.faceParams.mouthCurve;
+        
+        // Usa cor customizada se definida, senão usa secondaryColor
+        const mouthCol = this.mouthColor || this.secondaryColor;
+        
+        // Fator de reação para bocas animadas
+        const reaction = this.getMoodReactionFactor();
+        
+        switch (this.mouthType) {
+            case 'simple':
+                this.drawSimpleMouth(renderer, cx, cy, s, curve, mouthCol);
+                break;
+            case 'cat':
+                this.drawCatMouth(renderer, cx, cy, s, curve, mouthCol);
+                break;
+            case 'pixel':
+                this.drawPixelMouth(renderer, cx, cy, s, curve, mouthCol);
+                break;
+            case 'kawaii':
+                this.drawKawaiiMouth(renderer, cx, cy, s, curve, mouthCol);
+                break;
+            // ═══ NOVAS BOCAS ═══
+            case 'saw':
+                this.drawSawMouth(renderer, cx, cy, s, curve, mouthCol, reaction);
+                break;
+            case 'joker':
+                this.drawJokerMouth(renderer, cx, cy, s, curve, mouthCol, reaction);
+                break;
+            case 'fangs':
+                this.drawFangsMouth(renderer, cx, cy, s, curve, mouthCol, reaction);
+                break;
+            case 'pulse':
+                this.drawPulseMouth(renderer, cx, cy, s, curve, mouthCol, reaction);
+                break;
+            case 'zipper':
+                this.drawZipperMouth(renderer, cx, cy, s, curve, mouthCol, reaction);
+                break;
+            case 'bubble':
+                this.drawBubbleMouth(renderer, cx, cy, s, curve, mouthCol, reaction);
+                break;
+            case 'uwu':
+                this.drawUwuMouth(renderer, cx, cy, s, curve, mouthCol);
+                break;
+            case 'robot':
+                this.drawRobotMouth(renderer, cx, cy, s, curve, mouthCol, reaction);
+                break;
+            default:
+                this.drawSimpleMouth(renderer, cx, cy, s, curve, mouthCol);
+        }
+    }
+    
+    drawSimpleMouth(renderer, cx, cy, s, curve, mouthCol) {
         const mouthWidth = 8 * s;
         const curveHeight = curve * 5 * s;
         
@@ -1074,42 +1561,42 @@ export default class GeoPet {
             // Parábola: y = 4 * curve * t * (1 - t)
             const y = cy + curveHeight * 4 * t * (1 - t);
             
-            renderer.drawLine(lastX, lastY, x, y, this.secondaryColor);
+            renderer.drawLine(lastX, lastY, x, y, mouthCol);
             lastX = x;
             lastY = y;
         }
     }
     
-    drawCatMouth(renderer, cx, cy, s, curve) {
+    drawCatMouth(renderer, cx, cy, s, curve, mouthCol) {
         const w = 6 * s;
         const h = 3 * s * Math.abs(curve);
         const dir = curve >= 0 ? 1 : -1;
         
         // Formato "w" ou "m"
-        renderer.drawLine(cx - w, cy, cx - w * 0.3, cy + h * dir, this.secondaryColor);
-        renderer.drawLine(cx - w * 0.3, cy + h * dir, cx, cy - h * 0.5 * dir, this.secondaryColor);
-        renderer.drawLine(cx, cy - h * 0.5 * dir, cx + w * 0.3, cy + h * dir, this.secondaryColor);
-        renderer.drawLine(cx + w * 0.3, cy + h * dir, cx + w, cy, this.secondaryColor);
+        renderer.drawLine(cx - w, cy, cx - w * 0.3, cy + h * dir, mouthCol);
+        renderer.drawLine(cx - w * 0.3, cy + h * dir, cx, cy - h * 0.5 * dir, mouthCol);
+        renderer.drawLine(cx, cy - h * 0.5 * dir, cx + w * 0.3, cy + h * dir, mouthCol);
+        renderer.drawLine(cx + w * 0.3, cy + h * dir, cx + w, cy, mouthCol);
     }
     
-    drawPixelMouth(renderer, cx, cy, s, curve) {
+    drawPixelMouth(renderer, cx, cy, s, curve, mouthCol) {
         const mouthW = 10 * s;
         const mouthH = 3 * s;
         
         if (curve > 0.4) {
             // Boca aberta feliz
             renderer.fillRect(cx - mouthW / 2, cy - mouthH / 2, mouthW, mouthH, '#000000');
-            renderer.drawRect(cx - mouthW / 2, cy - mouthH / 2, mouthW, mouthH, this.secondaryColor);
+            renderer.drawRect(cx - mouthW / 2, cy - mouthH / 2, mouthW, mouthH, mouthCol);
         } else if (curve < -0.2) {
             // Boca triste
-            renderer.drawLine(cx - mouthW / 2, cy + mouthH, cx + mouthW / 2, cy + mouthH, this.secondaryColor);
+            renderer.drawLine(cx - mouthW / 2, cy + mouthH, cx + mouthW / 2, cy + mouthH, mouthCol);
         } else {
             // Neutro
-            renderer.drawLine(cx - mouthW / 2, cy, cx + mouthW / 2, cy, this.secondaryColor);
+            renderer.drawLine(cx - mouthW / 2, cy, cx + mouthW / 2, cy, mouthCol);
         }
     }
     
-    drawKawaiiMouth(renderer, cx, cy, s, curve) {
+    drawKawaiiMouth(renderer, cx, cy, s, curve, mouthCol) {
         const radius = 3 * s * Math.abs(curve);
         
         if (curve > 0) {
@@ -1117,21 +1604,259 @@ export default class GeoPet {
             for (let angle = 0; angle <= Math.PI; angle += 0.1) {
                 const x = cx + Math.cos(angle) * radius;
                 const y = cy + Math.sin(angle) * radius * 0.5;
-                renderer.setPixelHex(x, y, this.secondaryColor);
+                renderer.setPixelHex(x, y, mouthCol);
             }
         } else if (curve < -0.1) {
             // Tristeza (semicírculo superior)
             for (let angle = Math.PI; angle <= Math.PI * 2; angle += 0.1) {
                 const x = cx + Math.cos(angle) * radius;
                 const y = cy + 2 * s + Math.sin(angle) * radius * 0.5;
-                renderer.setPixelHex(x, y, this.secondaryColor);
+                renderer.setPixelHex(x, y, mouthCol);
             }
         } else {
             // Boquinha fechada
-            renderer.setPixelHex(cx - 1, cy, this.secondaryColor);
-            renderer.setPixelHex(cx, cy, this.secondaryColor);
-            renderer.setPixelHex(cx + 1, cy, this.secondaryColor);
+            renderer.setPixelHex(cx - 1, cy, mouthCol);
+            renderer.setPixelHex(cx, cy, mouthCol);
+            renderer.setPixelHex(cx + 1, cy, mouthCol);
         }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // NOVAS BOCAS
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Boca Serra - Zigue-zague afiado
+     */
+    drawSawMouth(renderer, cx, cy, s, curve, mouthCol, reaction) {
+        const width = 12 * s;
+        const teeth = 5;
+        const toothH = 4 * s * (0.5 + curve * 0.5) * reaction.intensity;
+        
+        let lastX = cx - width / 2;
+        let lastY = cy;
+        
+        for (let i = 0; i <= teeth; i++) {
+            const x = cx - width / 2 + (width / teeth) * i;
+            const y = cy + (i % 2 === 0 ? 0 : toothH);
+            
+            renderer.drawLine(lastX, lastY, x, y, mouthCol);
+            lastX = x;
+            lastY = y;
+        }
+        
+        // Linha de base quando triste
+        if (curve < 0) {
+            renderer.drawLine(cx - width / 2, cy + toothH, cx + width / 2, cy + toothH, mouthCol);
+        }
+    }
+    
+    /**
+     * Boca Coringa - Sorriso maníaco
+     */
+    drawJokerMouth(renderer, cx, cy, s, curve, mouthCol, reaction) {
+        const width = 14 * s * reaction.intensity;
+        const height = 8 * s * Math.abs(curve);
+        const dir = curve >= 0 ? 1 : -1;
+        
+        // Curva principal bem exagerada
+        const segments = 15;
+        let lastX = cx - width / 2;
+        let lastY = cy - height * 0.3 * dir;
+        
+        for (let i = 1; i <= segments; i++) {
+            const t = i / segments;
+            const x = cx - width / 2 + width * t;
+            // Curva exagerada que sobe além do rosto
+            const curveVal = Math.sin(t * Math.PI) * height * dir;
+            const y = cy + curveVal;
+            
+            renderer.drawLine(lastX, lastY, x, y, mouthCol);
+            lastX = x;
+            lastY = y;
+        }
+        
+        // Cantos levantados (estilo Coringa)
+        if (curve > 0.3) {
+            renderer.drawLine(cx - width / 2, cy - height * 0.3, cx - width / 2 - 3 * s, cy - height * 0.6, mouthCol);
+            renderer.drawLine(cx + width / 2, cy - height * 0.3, cx + width / 2 + 3 * s, cy - height * 0.6, mouthCol);
+        }
+    }
+    
+    /**
+     * Boca Presas - Vampiro
+     */
+    drawFangsMouth(renderer, cx, cy, s, curve, mouthCol, reaction) {
+        // Escala das presas diminui quando triste
+        const fangScale = curve > 0 ? 1 : 0.6;
+        const fangH = 5 * s * fangScale * reaction.intensity;
+        const mouthW = 8 * s;
+        
+        // Linha da boca
+        const curveH = curve * 3 * s;
+        renderer.drawLine(cx - mouthW / 2, cy, cx, cy + curveH, mouthCol);
+        renderer.drawLine(cx, cy + curveH, cx + mouthW / 2, cy, mouthCol);
+        
+        // Presas
+        const fangX = 3 * s;
+        // Presa esquerda
+        renderer.drawLine(cx - fangX, cy, cx - fangX - 1, cy + fangH, mouthCol);
+        renderer.drawLine(cx - fangX - 1, cy + fangH, cx - fangX + 1, cy + fangH * 0.8, mouthCol);
+        renderer.drawLine(cx - fangX + 1, cy + fangH * 0.8, cx - fangX, cy, mouthCol);
+        
+        // Presa direita
+        renderer.drawLine(cx + fangX, cy, cx + fangX + 1, cy + fangH, mouthCol);
+        renderer.drawLine(cx + fangX + 1, cy + fangH, cx + fangX - 1, cy + fangH * 0.8, mouthCol);
+        renderer.drawLine(cx + fangX - 1, cy + fangH * 0.8, cx + fangX, cy, mouthCol);
+    }
+    
+    /**
+     * Boca Pulso - Linha de áudio
+     */
+    drawPulseMouth(renderer, cx, cy, s, curve, mouthCol, reaction) {
+        const width = 16 * s;
+        const { r, g, b } = renderer.hexToRgb(mouthCol);
+        
+        // Gera forma de onda baseada no tempo e reação
+        const time = Date.now() * 0.01 * reaction.speed;
+        const amplitude = 4 * s * reaction.intensity * (0.5 + curve * 0.5);
+        
+        let lastX = cx - width / 2;
+        let lastY = cy;
+        
+        for (let i = 1; i <= 20; i++) {
+            const t = i / 20;
+            const x = cx - width / 2 + width * t;
+            
+            // Forma de onda composta
+            const wave1 = Math.sin(t * Math.PI * 4 + time) * amplitude;
+            const wave2 = Math.sin(t * Math.PI * 8 + time * 1.5) * amplitude * 0.3;
+            const y = cy + wave1 + wave2;
+            
+            const alpha = Math.floor(180 + 75 * Math.sin(t * Math.PI));
+            this.drawLineRgba(renderer, lastX, lastY, x, y, r, g, b, alpha);
+            
+            lastX = x;
+            lastY = y;
+        }
+    }
+    
+    /**
+     * Boca Zíper - Costurada
+     */
+    drawZipperMouth(renderer, cx, cy, s, curve, mouthCol, reaction) {
+        const width = 10 * s;
+        const stitches = 6;
+        const stitchH = 3 * s;
+        
+        // Linha principal
+        renderer.drawLine(cx - width / 2, cy, cx + width / 2, cy, mouthCol);
+        
+        // Costuras verticais
+        for (let i = 0; i <= stitches; i++) {
+            const x = cx - width / 2 + (width / stitches) * i;
+            renderer.drawLine(x, cy - stitchH / 2, x, cy + stitchH / 2, mouthCol);
+        }
+        
+        // Quando feliz, abre um pouco
+        if (curve > 0.3) {
+            const openAmount = curve * 3 * s;
+            renderer.drawLine(cx - width / 4, cy + stitchH / 2, cx + width / 4, cy + stitchH / 2 + openAmount, mouthCol);
+        }
+    }
+    
+    /**
+     * Boca Bolha - Soprando/O
+     */
+    drawBubbleMouth(renderer, cx, cy, s, curve, mouthCol, reaction) {
+        const radius = (3 + curve * 2) * s * reaction.intensity;
+        
+        // Boca em O
+        renderer.drawCircle(cx, cy, radius, mouthCol);
+        renderer.fillCircle(cx, cy, radius - 1, '#000000');
+        
+        // Bolhas quando feliz
+        if (curve > 0.2) {
+            const time = Date.now() * 0.003;
+            for (let i = 0; i < 3; i++) {
+                const bubbleY = cy - (time * 10 + i * 15) % 30;
+                const bubbleX = cx + Math.sin(time + i) * 5 * s;
+                const bubbleR = (1 + i * 0.5) * s;
+                
+                if (bubbleY > cy - 25 * s) {
+                    renderer.drawCircle(bubbleX, bubbleY, bubbleR, mouthCol);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Boca UwU - Super fofa
+     */
+    drawUwuMouth(renderer, cx, cy, s, curve, mouthCol) {
+        const width = 6 * s;
+        
+        if (curve > 0) {
+            // UwU feliz - formato de "w" pequeno e fofo
+            const h = 2 * s * curve;
+            renderer.drawLine(cx - width / 2, cy, cx - width / 4, cy + h, mouthCol);
+            renderer.drawLine(cx - width / 4, cy + h, cx, cy, mouthCol);
+            renderer.drawLine(cx, cy, cx + width / 4, cy + h, mouthCol);
+            renderer.drawLine(cx + width / 4, cy + h, cx + width / 2, cy, mouthCol);
+        } else {
+            // Triste - linha ondulada
+            const segments = 8;
+            let lastX = cx - width / 2;
+            let lastY = cy;
+            
+            for (let i = 1; i <= segments; i++) {
+                const t = i / segments;
+                const x = cx - width / 2 + width * t;
+                const y = cy + Math.sin(t * Math.PI * 2) * s * 0.5 - curve * 2 * s;
+                renderer.drawLine(lastX, lastY, x, y, mouthCol);
+                lastX = x;
+                lastY = y;
+            }
+        }
+    }
+    
+    /**
+     * Boca Robô - Segmentada digital
+     */
+    drawRobotMouth(renderer, cx, cy, s, curve, mouthCol, reaction) {
+        const width = 12 * s;
+        const height = 4 * s;
+        const segments = 5;
+        const segmentW = width / segments;
+        
+        const { r, g, b } = renderer.hexToRgb(mouthCol);
+        
+        // Cada segmento acende baseado no mood
+        const activeSegments = Math.floor((curve + 1) / 2 * segments) + 1;
+        const time = Date.now() * 0.01 * reaction.speed;
+        
+        for (let i = 0; i < segments; i++) {
+            const x = cx - width / 2 + segmentW * i + segmentW * 0.1;
+            const segW = segmentW * 0.8;
+            
+            // Determina brilho do segmento
+            let brightness = 0.3;
+            if (i < activeSegments) {
+                brightness = 0.7 + Math.sin(time + i * 0.5) * 0.3;
+            }
+            
+            const alpha = Math.floor(255 * brightness * reaction.intensity);
+            
+            // Desenha segmento
+            for (let py = 0; py < height; py++) {
+                for (let px = 0; px < segW; px++) {
+                    renderer.setPixelBlend(x + px, cy - height / 2 + py, r, g, b, alpha);
+                }
+            }
+        }
+        
+        // Contorno
+        renderer.drawRect(cx - width / 2, cy - height / 2, width, height, mouthCol);
     }
     
     drawBrows(renderer, cx, cy, s) {
@@ -1496,6 +2221,8 @@ export default class GeoPet {
             materialId: this.materialId,
             primaryColor: this.primaryColor,
             secondaryColor: this.secondaryColor,
+            eyeColor: this.eyeColor,
+            mouthColor: this.mouthColor,
             hunger: this.hunger,
             happiness: this.happiness,
             energy: this.energy

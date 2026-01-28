@@ -218,6 +218,91 @@ body::after {
     box-shadow: 0 0 15px var(--magenta-dim);
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   SISTEMA ARCO-ÍRIS - Seletor de Cores RGB
+   ═══════════════════════════════════════════════════════════════════ */
+
+.rainbow-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-left: 8px;
+    background: linear-gradient(90deg, 
+        #ff0000, #ff8800, #ffff00, 
+        #00ff00, #00ffff, #0088ff, 
+        #8800ff, #ff00ff);
+    border: 1px solid #444;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    vertical-align: middle;
+}
+
+.rainbow-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+.rainbow-btn.active {
+    border-color: #fff;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
+}
+
+.color-picker-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.color-picker-container input[type="color"] {
+    width: 50px;
+    height: 30px;
+    border: 2px solid var(--neon-cyan);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+}
+
+.color-picker-container input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 2px;
+}
+
+.color-picker-container input[type="color"]::-webkit-color-swatch {
+    border-radius: 2px;
+    border: none;
+}
+
+.color-reset-btn {
+    padding: 4px 8px;
+    background: rgba(255, 50, 50, 0.2);
+    border: 1px solid #ff5555;
+    border-radius: 4px;
+    color: #ff5555;
+    font-family: inherit;
+    font-size: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.color-reset-btn:hover {
+    background: rgba(255, 50, 50, 0.4);
+    box-shadow: 0 0 10px rgba(255, 50, 50, 0.5);
+}
+
 /* Color buttons */
 .color-row {
     display: flex;
@@ -314,6 +399,17 @@ body::after {
     text-align: center;
     text-shadow: 0 0 10px var(--neon-cyan);
     margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.room-title.mood-change {
+    animation: moodPulse 0.3s ease-out;
+}
+
+@keyframes moodPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); text-shadow: 0 0 20px var(--neon-magenta); }
+    100% { transform: scale(1); }
 }
 
 .stats-panel {

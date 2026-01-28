@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import Renderer from '../core/Renderer.js';
-import GeoPet from '../entities/GeoPet.js';
+import GeoPet, { MOOD_TYPES, MOOD_LABELS } from '../entities/GeoPet.js';
 import { UISoundSystem } from '../systems/UISoundSystem.js';
 import { PetVoiceSystem } from '../systems/PetVoiceSystem.js';
 import { DialogueSystem } from '../systems/DialogueSystem.js';
@@ -153,7 +153,7 @@ export default class HomeScene {
         uiContainer.id = 'home-ui';
         uiContainer.innerHTML = `
             <div class="home-header">
-                <h2 class="room-title">🏠 QUARTO</h2>
+                <h2 class="room-title" id="mood-display">😊 Feliz</h2>
                 <div class="stats-panel">
                     <div class="stat">
                         <span class="stat-label">FOME</span>
@@ -391,6 +391,9 @@ export default class HomeScene {
         // Aplica no pet
         this.pet.shock();
         
+        // Registra maus tratos para o sistema de humor
+        this.pet.registerMistreatment();
+        
         // Registra no histórico
         InteractionHistorySystem.record(INTERACTION_TYPES.SHOCK, {
             mood: this.pet.expressionState.mood,
@@ -420,6 +423,9 @@ export default class HomeScene {
         // Aplica no pet
         this.pet.freeze();
         
+        // Registra maus tratos para o sistema de humor
+        this.pet.registerMistreatment();
+        
         // Registra no histórico
         InteractionHistorySystem.record(INTERACTION_TYPES.FREEZE, {
             mood: this.pet.expressionState.mood,
@@ -448,6 +454,9 @@ export default class HomeScene {
         
         // Aplica no pet
         const result = this.pet.mutate(null, 5000);
+        
+        // Registra maus tratos para o sistema de humor
+        this.pet.registerMistreatment();
         
         // Registra no histórico
         InteractionHistorySystem.record(INTERACTION_TYPES.MUTATE, {
@@ -654,6 +663,9 @@ export default class HomeScene {
         
         this.pet.update(deltaTime);
         
+        // Atualiza display de humor
+        this.updateMoodDisplay();
+        
         // Constrain pet to room
         this.constrainPetToRoom();
         
@@ -670,6 +682,22 @@ export default class HomeScene {
         
         // Auto dialogue
         this.updateAutoDialogue(deltaTime);
+    }
+    
+    /**
+     * Atualiza o display de humor na UI
+     */
+    updateMoodDisplay() {
+        const moodDisplay = document.getElementById('mood-display');
+        if (moodDisplay && this.pet) {
+            const moodLabel = this.pet.getMoodLabel();
+            if (moodDisplay.textContent !== moodLabel) {
+                moodDisplay.textContent = moodLabel;
+                // Animação de transição
+                moodDisplay.classList.add('mood-change');
+                setTimeout(() => moodDisplay.classList.remove('mood-change'), 300);
+            }
+        }
     }
     
     constrainPetToRoom() {
