@@ -29,7 +29,8 @@ const DIALOGUES = {
             "O que fazer?",
             "Pensando...",
             "*boceja*",
-            "Tudo tranquilo~"
+            "Tudo tranquilo~",
+            "Qual o sentido de ficar preso aqui ?"
         ],
         sad: [
             "Snif...",
@@ -193,7 +194,7 @@ const DIALOGUES = {
         "Sou um... novo eu?",
         "Que forma estranha...",
         "Preciso me acostumar...",
-        "Olha só meus ângulos!",
+        "me sinto esquisito",
         "Diferente... mas ok!",
         "*examina nova forma*"
     ],
@@ -206,23 +207,23 @@ const DIALOGUES = {
         "*morrendo de rir*",
         "Ahahaha! Chega!",
         "Minhas arestas são sensíveis!",
-        "HIHIHI~",
+        "hehehe",
         "Não nos vértices! Haha!",
-        "*risada geométrica*",
+        "risadinha",
         "Para para HAHAHA!",
-        "Aiii que cócegas!",
-        "♪ Hehehe~ ♪"
+        "aiaiai uiuiui",
+        "se divirto"
     ],
     
     // ═══ CURAR/HEAL ═══
     healed: [
-        "Aaah~ que alívio!",
+        "que delicia!!",
         "Me sinto renovado!",
         "Obrigado pelo cuidado!",
-        "✧ Restaurado ✧",
+        "Restaurado",
         "Energia positiva!",
-        "Muito melhor!",
-        "*brilha de gratidão*",
+        "bem melhor!",
+        "gratidão",
         "Você é gentil!"
     ],
     
@@ -232,21 +233,21 @@ const DIALOGUES = {
         "Eu confiei em você...",
         "Isso machuca...",
         "Não gosto disso...",
-        "*olhar triste*",
+        "para!",
         "Preferia carinho...",
-        "Sou só formas... mas sinto...",
+        "não se importa com meu sofrimento?",
         "Você gosta de me ver sofrer?"
     ],
     
     // ═══ REAÇÕES A DONO CARINHOSO ═══
     loved: [
-        "Melhor dono!",
-        "Te adoro! 💕",
+        "Obrigado por ser gentil, criador!",
+        "tamo junto!",
         "Obrigado por cuidar de mim!",
         "Você é especial!",
-        "*coração geométrico*",
-        "Sortudo por ter você!",
-        "♥ Amor infinito ♥"
+        "Amo você!",
+        "Sou grato por você!",
+        "é nois"
     ]
 };
 
