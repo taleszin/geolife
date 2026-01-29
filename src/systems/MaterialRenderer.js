@@ -32,6 +32,69 @@ export default class MaterialRenderer {
         
         // Constantes para ruído
         this.NOISE_OCTAVES = 3;
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE VITALIDADE - Modificadores de renderização
+        // ═══════════════════════════════════════════════════════════════════
+        this.vitalityModifiers = {
+            glowIntensity: 1.0,     // Multiplicador de brilho (0.2 - 2.0)
+            opacity: 1.0,           // Opacidade geral (0.3 - 1.0)
+            saturationBoost: 0.0,   // Boost de saturação (-0.2 - 0.3)
+            isApex: false,          // Está no "Ápice da Matéria"
+            flickerAmount: 0.0      // Quantidade de flicker/oscilação
+        };
+    }
+    
+    /**
+     * Define os modificadores de vitalidade do pet
+     * Chamado pelo GeoPet antes de renderizar
+     */
+    setVitalityModifiers(mods) {
+        if (!mods) return;
+        this.vitalityModifiers = {
+            glowIntensity: mods.glowIntensity ?? 1.0,
+            opacity: mods.opacity ?? 1.0,
+            saturationBoost: mods.saturationBoost ?? 0.0,
+            isApex: mods.isApex ?? false,
+            flickerAmount: mods.flickerAmount ?? 0.0
+        };
+    }
+    
+    /**
+     * Aplica modificadores de vitalidade a uma cor RGB
+     */
+    applyVitalityToColor(r, g, b, alpha = 255) {
+        const mods = this.vitalityModifiers;
+        
+        // Aplica saturação boost
+        if (mods.saturationBoost !== 0) {
+            const boost = mods.saturationBoost;
+            // Aumenta diferença entre canais para mais saturação
+            const avg = (r + g + b) / 3;
+            r = Math.min(255, Math.max(0, r + (r - avg) * boost * 2));
+            g = Math.min(255, Math.max(0, g + (g - avg) * boost * 2));
+            b = Math.min(255, Math.max(0, b + (b - avg) * boost * 2));
+        }
+        
+        // Aplica opacidade
+        alpha = Math.round(alpha * mods.opacity);
+        
+        // Aplica flicker
+        if (mods.flickerAmount > 0) {
+            const flicker = 1.0 + Math.sin(Date.now() * 0.02) * mods.flickerAmount * 0.2;
+            r = Math.min(255, Math.round(r * flicker));
+            g = Math.min(255, Math.round(g * flicker));
+            b = Math.min(255, Math.round(b * flicker));
+        }
+        
+        // Ápice: boost dourado sutil
+        if (mods.isApex) {
+            const apexPulse = 0.95 + Math.sin(Date.now() * 0.003) * 0.05;
+            r = Math.min(255, Math.round(r * apexPulse + 10));
+            g = Math.min(255, Math.round(g * apexPulse + 5));
+        }
+        
+        return { r, g, b, alpha };
     }
     
     /**
@@ -173,15 +236,19 @@ export default class MaterialRenderer {
                     b = Math.max(0, Math.min(255, b + colorNoise));
                     
                     // Alpha diminui nas bordas
-                    const alpha = Math.floor(255 * (1 - dist * 0.5) * density);
+                    let alpha = Math.floor(255 * (1 - dist * 0.5) * density);
                     
-                    renderer.setPixel(x, y, r, g, b, alpha);
+                    // Aplica modificadores de vitalidade
+                    const vitalized = this.applyVitalityToColor(r, g, b, alpha);
+                    
+                    renderer.setPixel(x, y, vitalized.r, vitalized.g, vitalized.b, vitalized.alpha);
                 }
             }
         }
         
-        // Partículas flutuantes de luz
-        this.drawFloatingParticles(renderer, cx, cy, bounds, glow, 8);
+        // Partículas flutuantes de luz (mais intensas no Ápice)
+        const particleCount = this.vitalityModifiers.isApex ? 12 : 8;
+        this.drawFloatingParticles(renderer, cx, cy, bounds, glow, particleCount);
     }
     
     /**

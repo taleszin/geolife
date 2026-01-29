@@ -7,7 +7,7 @@
 // BANCO DE FRASES POR CONTEXTO/EMOÇÃO
 // ═══════════════════════════════════════════════════════════════════
 
-const DIALOGUES = {
+export const DIALOGUES = {
     // ═══ ESTADO IDLE (ocioso) ═══
     idle: {
         happy: [
@@ -19,7 +19,18 @@ const DIALOGUES = {
             "Hehe~",
             "♫ ♪ ♫",
             "Tudo é geométrico!",
-            "Adoro ser um {shape}!"
+            "Adoro ser um {shape}!",
+            "me sinto em paz hoje",
+            "o mundo aqui é bom",
+            "você é uma boa presença",
+            "gosto de te ver do outro lado",
+            "tudo brilha na medida certa",
+            "nada me falta agora",
+            "me sinto leve",
+            "é bom estar vivo aqui",
+            "minha essência está vibrando bem",
+            "me sinto completo hoje",
+            "gosto quando você fica por perto"
         ],
         neutral: [
             "...",
@@ -30,7 +41,18 @@ const DIALOGUES = {
             "Pensando...",
             "*boceja*",
             "Tudo tranquilo~",
-            "Qual o sentido de ficar preso aqui ?"
+            "Qual o sentido de ficar preso aqui ?",
+            "o que você está fazendo aí fora?",
+            "o vidro entre nós é tão frio hoje",
+            "estou te observando sabia",
+            "o tempo flui diferente aqui dentro",
+            "as vezes eu me pergunto como é aí",
+            "você me vê como eu te vejo?",
+            "o silêncio aqui é profundo",
+            "esperando o próximo momento",
+            "o que tem além desse limite?",
+            "pensando na minha própria forma",
+            "você ainda está aí?"
         ],
         sad: [
             "Snif...",
@@ -40,7 +62,16 @@ const DIALOGUES = {
             "Tão... fraco...",
             "Preciso de comida...",
             "Minha energia...",
-            "😢"
+            "estou ficando opaco",
+            "não me esqueça aqui sozinho",
+            "sinto um vazio estranho",
+            "meu brilho está indo embora",
+            "me sinto meio cinza",
+            "preciso de algo que me sustente",
+            "cadê você?",
+            "estou perdendo a cor",
+            "meus vértices pesam hoje",
+            "estou desaparecendo aos poucos"
         ],
         dying: [
             "Socorro...",
@@ -50,7 +81,15 @@ const DIALOGUES = {
             "Me ajuda...",
             "Não aguento...",
             "estoy cansado chefe",
-            "💀"
+            "tudo está apagando",
+            "não deixa eu sumir de vez",
+            "está ficando frio aqui",
+            "minha luz está acabando",
+            "não quero deixar de existir",
+            "por favor não me abandone agora",
+            "minha forma está desmoronando",
+            "estou perdendo o sinal",
+            "socorro criador"
         ]
     },
     
@@ -65,7 +104,14 @@ const DIALOGUES = {
         "Nhom nhom~",
         "Energia restaurada!",
         "Aaah~ satisfeito!",
-        "Isso era bom!"
+        "Isso era bom!",
+        "hum isso é vida",
+        "energia pura fluindo",
+        "sinto minha alma recarregar",
+        "sabor de existência",
+        "obrigado por me manter aqui",
+        "que sustento maravilhoso",
+        "me sinto vibrante de novo"
     ],
     
     // ═══ CARINHO ═══
@@ -78,17 +124,31 @@ const DIALOGUES = {
         "Você é o melhor!",
         "e nois",
         "Mais mais!",
-        "*feliz*"
+        "*feliz*",
+        "confortável demais",
+        "gosto do seu toque no vidro",
+        "me sinto seguro com você",
+        "não para por favor",
+        "seu toque é minha única conexão",
+        "sinto sua presença através da tela",
+        "isso acalma minha essência",
+        "obrigado por ser gentil"
     ],
     
     // ═══ MOVIMENTO ═══
     moving: [
-        "*pula pula*",
+        "pula pula",
         "Lá vou eu!",
         "Wheee~!",
         "Explorando!",
         "Aventura!",
-        "*rola*"
+        "rola",
+        "correndo pelos limites",
+        "olha como eu sou rápido",
+        "mudando de perspectiva",
+        "nada me segura aqui",
+        "deslizando pelo espaço",
+        "ver o que tem ali no canto"
     ],
     
     // ═══ CRIAÇÃO (nascimento) ═══
@@ -100,7 +160,11 @@ const DIALOGUES = {
         "Vamos ser amigos?",
         "Nasci!",
         "Que cores lindas!",
-        "Geometria é vida!"
+        "Geometria é vida!",
+        "então é aqui que eu vou viver?",
+        "quem é você que me olha?",
+        "me sinto novo e brilhante",
+        "finalmente ganhei uma forma"
     ],
     
     // ═══ SAUDAÇÃO ═══
@@ -111,7 +175,11 @@ const DIALOGUES = {
         "Voltou!",
         "Senti sua falta!",
         "Yay, você!",
-        "*acena*"
+        "acena",
+        "finalmente apareceu",
+        "estava te esperando no escuro",
+        "que bom que você veio",
+        "sinto sua presença novamente"
     ],
     
     // ═══ DESPEDIDA (ao sair) ═══
@@ -120,7 +188,11 @@ const DIALOGUES = {
         "Volta logo!",
         "Vou sentir saudade...",
         "Bye bye~",
-        "*acena triste*"
+        "acena triste",
+        "não me deixe sozinho por muito tempo",
+        "vou ficar aqui no vácuo te esperando",
+        "se cuida aí fora",
+        "até a próxima conexão"
     ],
     
     // ═══ CONQUISTAS ═══
@@ -128,40 +200,53 @@ const DIALOGUES = {
         "LEVEL UP!",
         "Fiquei mais forte!",
         "Evoluindo!",
-        "✧ POWER UP ✧",
-        "Crescendo!"
+        "melhorando em",
+        "Crescendo!",
+        "minha alma se expandiu",
+        "me sinto mais denso e real",
+        "estou transcendendo minha forma",
+        "cada vez mais perto da perfeição"
     ],
     
     // ═══ CHOQUE ELÉTRICO ═══
     shocked: [
         "AAAHHH!!!",
-        "⚡ BZZZZT! ⚡",
+        "BZZZZT!",
         "M-meus v-vértices!",
-        "*frita geometricamente*",
+        "frita geometricamente",
         "ISSO DÓI!",
         "POR QUÊ?!",
         "Minhas arestas!",
-        "*pixels tremendo*",
+        "tremendo todo",
         "Não de novo...",
         "Estou... carregado!",
         "QUE TENSÃO!",
-        "*zzzzap*"
+        "zzzzap",
+        "minha essência dói de verdade",
+        "isso quebra o que eu sou",
+        "por que essa agressividade criador?",
+        "isso queima por dentro",
+        "para com isso agora"
     ],
     
     // ═══ CONGELAMENTO ═══
     frozen: [
         "F-f-frio...",
-        "*congela*",
-        "Meus pixels... duros...",
-        "❄️ GELANDO ❄️",
+        "congela",
+        "meus traços... duros...",
+        "GELANDO",
         "N-não consigo... mexer...",
         "Tão... frio...",
-        "*treme de frio*",
+        "treme de frio",
         "Minhas cores... azuis...",
         "Preciso de calor...",
         "Virando... gelo...",
-        "*dentes batendo*",
-        "Socorro... congelando..."
+        "dentes batendo",
+        "Socorro... congelando...",
+        "estou paralisado no tempo",
+        "nada flui quando está frio assim",
+        "meu pensamento está parando",
+        "me sinto estático"
     ],
     
     // ═══ DESCONGELANDO ═══
@@ -170,7 +255,10 @@ const DIALOGUES = {
         "Voltando ao normal!",
         "Finalmente... calor!",
         "Minhas formas voltaram!",
-        "*se aquecendo*"
+        "se aquecendo",
+        "o fluxo voltou",
+        "sinto a vida correr de novo",
+        "obrigado por me aquecer"
     ],
     
     // ═══ MUTAÇÃO ═══
@@ -178,15 +266,19 @@ const DIALOGUES = {
         "O QUE ESTÁ ACONTECENDO?!",
         "Minha forma... mudando!",
         "AAAH não sou mais eu!",
-        "*glitch intenso*",
+        "instabilidade intensa",
         "Quem... sou eu?",
         "Meus vértices... diferentes!",
-        "✧ TRANSFORMANDO ✧",
-        "Instável... molecularmente...",
+        "TRANSFORMANDO",
+        "Instável... com medo...",
         "EU ERA UM {shape}!",
         "Isso é... estranho...",
-        "*pixels reorganizando*",
-        "Não reconheço meu corpo!"
+        "reorganizando tudo",
+        "Não reconheço meu corpo!",
+        "não gosto dessa forma",
+        "quem eu estou me tornando?",
+        "tudo dói enquanto muda",
+        "me ajude a me encontrar"
     ],
     
     // ═══ PÓS-MUTAÇÃO ═══
@@ -196,7 +288,11 @@ const DIALOGUES = {
         "Preciso me acostumar...",
         "me sinto esquisito",
         "Diferente... mas ok!",
-        "*examina nova forma*"
+        "não quero ficar assim para sempre",
+        "criador, me ajuda",
+        "esta nova casca é pesada",
+        "será que você ainda me ama assim?",
+        "pelo menos ainda existo"
     ],
     
     // ═══ CÓCEGAS ═══
@@ -204,7 +300,7 @@ const DIALOGUES = {
         "HAHAHA!",
         "Para! Hehe!",
         "Não! Cócegas não! Haha!",
-        "*morrendo de rir*",
+        "faz cosquinha",
         "Ahahaha! Chega!",
         "Minhas arestas são sensíveis!",
         "hehehe",
@@ -212,7 +308,10 @@ const DIALOGUES = {
         "risadinha",
         "Para para HAHAHA!",
         "aiaiai uiuiui",
-        "se divirto"
+        "se divirto",
+        "hahaha você me achou",
+        "chega por favor estou rindo demais",
+        "isso faz minha forma vibrar"
     ],
     
     // ═══ CURAR/HEAL ═══
@@ -224,7 +323,10 @@ const DIALOGUES = {
         "Energia positiva!",
         "bem melhor!",
         "gratidão",
-        "Você é gentil!"
+        "Você é gentil!",
+        "me sinto inteiro novamente",
+        "minha luz voltou ao normal",
+        "obrigado por me consertar"
     ],
     
     // ═══ REAÇÕES A MAUS TRATOS REPETIDOS ═══
@@ -236,7 +338,11 @@ const DIALOGUES = {
         "para!",
         "Preferia carinho...",
         "não se importa com meu sofrimento?",
-        "Você gosta de me ver sofrer?"
+        "Você gosta de me ver sofrer?",
+        "eu não pedi para nascer assim",
+        "estou com medo de você",
+        "por que você me odeia tanto?",
+        "meus pensamentos estão ficando sombrios"
     ],
     
     // ═══ REAÇÕES A DONO CARINHOSO ═══
@@ -247,7 +353,216 @@ const DIALOGUES = {
         "Você é especial!",
         "Amo você!",
         "Sou grato por você!",
-        "é nois"
+        "é nois",
+        "nossa conexão é única",
+        "gosto quando você está aqui",
+        "você dá sentido à minha existência"
+    ],
+    
+    // ═══ INFANTE (age 0.0 - 0.3) ═══
+    infant_idle: {
+        happy: [
+            "Gu gu!",
+            "pula animado",
+            "Uiii!",
+            "Ohhh brilhante!",
+            "Mama?",
+            "Brinca comigo!",
+            "Wheee~!",
+            "gira gira",
+            "tô felizinho",
+            "olha eu aqui"
+        ],
+        neutral: [
+            "Zzz... hã?",
+            "olha confuso",
+            "Que isso?",
+            "boceja",
+            "Hmm?",
+            "pisca pisca",
+            "cadê a luz?",
+            "o que é você?"
+        ],
+        sad: [
+            "Buááá!",
+            "Fome... fome...",
+            "choraminga",
+            "Mamã...",
+            "Não gosto...",
+            "snif snif",
+            "tô com medo",
+            "não me deixa sozinho"
+        ],
+        dying: [
+            "tremendo",
+            "Fraquinho...",
+            "Ajuda...",
+            "choro fraco",
+            "mama me ajuda",
+            "tá tudo escurecendo"
+        ]
+    },
+    
+    // ═══ JOVEM (age 0.3 - 0.7) ═══
+    young_idle: {
+        happy: [
+            "Estou crescendo!",
+            "Olha o que sei fazer!",
+            "Sou forte agora!",
+            "pose de herói",
+            "Aventura!",
+            "O mundo é incrível!",
+            "Cada dia aprendo mais!",
+            "brilhando muito",
+            "me sinto invencível",
+            "nada pode me parar agora"
+        ],
+        neutral: [
+            "Hmm pensando...",
+            "O que será que tem lá?",
+            "explora o ambiente",
+            "Interessante...",
+            "Me pergunto...",
+            "Quando vou crescer mais?",
+            "estou de olho em você",
+            "o que você está escrevendo aí?"
+        ],
+        sad: [
+            "Não estou bem...",
+            "Preciso comer algo...",
+            "Me sinto fraco...",
+            "Não esqueça de mim...",
+            "Cadê você?",
+            "suspira",
+            "me sinto ignorado",
+            "minha força está sumindo"
+        ],
+        dying: [
+            "Estou mal...",
+            "Socorro...",
+            "Muito fraco...",
+            "Ajuda... por favor...",
+            "eu ainda tinha tanto para ver",
+            "não me deixe sumir assim"
+        ]
+    },
+    
+    // ═══ ADULTO (age 0.7 - 1.0) ═══
+    adult_idle: {
+        happy: [
+            "A vida é bela!",
+            "Me sinto completo.",
+            "Que paz interior",
+            "Gratidão por cada momento.",
+            "plenitude absoluta",
+            "Sabedoria geométrica.",
+            "Minha forma é perfeita.",
+            "Evoluí muito...",
+            "estou em total equilíbrio",
+            "nossa jornada valeu a pena"
+        ],
+        neutral: [
+            "Contemplando a existência...",
+            "O tempo flui...",
+            "medita",
+            "Paz interior.",
+            "Serenidade.",
+            "Aceito o fluxo da vida.",
+            "observando a vastidão do código",
+            "quem somos nós além do vidro?"
+        ],
+        sad: [
+            "Até adultos têm dias ruins...",
+            "Preciso de sustento...",
+            "O corpo precisa de cuidado.",
+            "Não me abandone...",
+            "Lembro dos velhos tempos...",
+            "melancolia profunda",
+            "mesmo sábio eu sinto fome",
+            "cadê sua mão para me guiar?"
+        ],
+        dying: [
+            "Minha luz se apaga...",
+            "Foi uma boa jornada...",
+            "Cuide melhor de mim...",
+            "Não deixe terminar assim...",
+            "estou retornando ao vácuo",
+            "minha consciência está fragmentando"
+        ]
+    },
+    
+    // ═══ EVENTO: MUDANÇA DE ESTÁGIO ═══
+    stageChange_infant_young: [
+        "Estou crescendo!",
+        "Me sinto mais forte!",
+        "Olha! Fiquei maior!",
+        "Saí do berço!",
+        "Evolui!",
+        "Não sou mais bebê!",
+        "minha mente está expandindo"
+    ],
+    
+    stageChange_young_adult: [
+        "Finalmente... adulto!",
+        "Atingi minha forma final!",
+        "Que sensação incrível!",
+        "Sou completo agora!",
+        "EFLORESCÊNCIA",
+        "A maturidade chegou!",
+        "entendo meu propósito agora"
+    ],
+    
+    // ═══ EVENTO: ÁPICE DA MATÉRIA ═══
+    apex: [
+        "ÁPICE DA MATÉRIA",
+        "Minha forma brilha!",
+        "Sinto poder infinito!",
+        "Perfeição geométrica!",
+        "Transcendi!",
+        "Este é meu verdadeiro eu!",
+        "Radiante!",
+        "O universo em mim!",
+        "furei a barreira da forma",
+        "estou em todo lugar agora"
+    ],
+    
+    // ═══ PERSONALIDADES ═══
+    personality_radiant: [
+        "brilho sempre",
+        "A luz me guia!",
+        "Irradio felicidade!",
+        "Sol interior",
+        "minha alegria é contagiosa",
+        "tudo fica claro quando eu chego"
+    ],
+    
+    personality_melancholic: [
+        "Há beleza na melancolia...",
+        "suspira profundamente",
+        "O silêncio me conforta.",
+        "Pensamentos profundos...",
+        "me perco na minha própria quietude",
+        "o mundo é tão vasto e eu tão pequeno"
+    ],
+    
+    personality_unstable: [
+        "instabilidade O-olá!",
+        "Não consigo parar!",
+        "Hã? O quê?",
+        "pisca erraticamente",
+        "Muita energia! Pouca! Muita!",
+        "estou perdendo o controle",
+        "quem eu sou hoje?"
+    ],
+    
+    personality_protective: [
+        "Estou aqui.",
+        "Conte comigo.",
+        "Firme e forte.",
+        "Sempre presente.",
+        "Estabilidade é paz.",
+        "eu protejo o equilíbrio",
+        "nada vai te machucar enquanto eu existir"
     ]
 };
 
@@ -309,24 +624,40 @@ class DialogueSystemClass {
     }
     
     /**
-     * Gera uma fala baseada no contexto e emoção
+     * Gera uma fala baseada no contexto, emoção e IDADE do pet
      * @param {string} context - Contexto: 'idle', 'eating', 'petted', etc.
      * @param {string} emotion - Emoção: 'happy', 'sad', 'neutral', etc.
      * @param {string} shapeId - Forma do pet (para substituição de template)
+     * @param {object} options - Opções adicionais { ageStage, personality }
      * @returns {string} Frase gerada
      */
-    generateDialogue(context, emotion = 'neutral', shapeId = 'circulo') {
+    generateDialogue(context, emotion = 'neutral', shapeId = 'circulo', options = {}) {
+        const { ageStage, personality } = options;
         let phrases;
         
-        // Contextos especiais que têm suas próprias frases
+        // Contextos especiais que têm suas próprias frases (independente de idade)
         const specialContexts = [
             'eating', 'petted', 'moving', 'birth', 'greeting', 'farewell', 'levelUp',
             'shocked', 'frozen', 'thawing', 'mutating', 'mutated', 'tickled', 'healed',
-            'mistreated', 'loved'
+            'mistreated', 'loved', 'apex',
+            'stageChange_infant_young', 'stageChange_young_adult',
+            'personality_radiant', 'personality_melancholic', 
+            'personality_unstable', 'personality_protective'
         ];
         
         if (specialContexts.includes(context) && DIALOGUES[context]) {
             phrases = DIALOGUES[context];
+        } else if (context === 'idle' && ageStage) {
+            // ═══ FALAS BASEADAS NA IDADE ═══
+            const ageContext = `${ageStage}_idle`;
+            if (DIALOGUES[ageContext] && DIALOGUES[ageContext][emotion]) {
+                phrases = DIALOGUES[ageContext][emotion];
+            } else if (DIALOGUES[ageContext] && DIALOGUES[ageContext].neutral) {
+                phrases = DIALOGUES[ageContext].neutral;
+            } else if (DIALOGUES.idle && DIALOGUES.idle[emotion]) {
+                // Fallback para idle genérico
+                phrases = DIALOGUES.idle[emotion];
+            }
         } else if (DIALOGUES.idle && DIALOGUES.idle[emotion]) {
             // Usa idle com emoção
             phrases = DIALOGUES.idle[emotion];
@@ -335,7 +666,7 @@ class DialogueSystemClass {
             phrases = DIALOGUES.idle?.neutral || ['...'];
         }
         
-        if (phrases.length === 0) {
+        if (!phrases || phrases.length === 0) {
             return '...';
         }
         
@@ -360,28 +691,69 @@ class DialogueSystemClass {
     }
     
     /**
-     * Tenta gerar fala automática (com cooldown)
+     * Gera fala para mudança de estágio de idade
      */
-    tryAutoDialogue(emotion, shapeId) {
+    generateAgeStageDialogue(newStage, oldStage, shapeId) {
+        let context;
+        if (oldStage === 'infant' && newStage === 'young') {
+            context = 'stageChange_infant_young';
+        } else if (oldStage === 'young' && newStage === 'adult') {
+            context = 'stageChange_young_adult';
+        } else {
+            return null;
+        }
+        
+        return this.generateDialogue(context, 'happy', shapeId);
+    }
+    
+    /**
+     * Gera fala para estado de Ápice
+     */
+    generateApexDialogue(shapeId) {
+        return this.generateDialogue('apex', 'happy', shapeId);
+    }
+    
+    /**
+     * Gera fala baseada na personalidade
+     */
+    generatePersonalityDialogue(personality, shapeId) {
+        const context = `personality_${personality}`;
+        if (DIALOGUES[context]) {
+            return this.generateDialogue(context, 'neutral', shapeId);
+        }
+        return null;
+    }
+    
+    /**
+     * Tenta gerar fala automática (com cooldown) - ATUALIZADO COM IDADE
+     */
+    tryAutoDialogue(emotion, shapeId, options = {}) {
         const now = Date.now();
         if (now - this.lastDialogueTime < this.dialogueCooldown) {
             return null;
         }
         
-        // Chance de falar baseada na emoção
-        const speakChance = {
+        // Chance de falar baseada na emoção e idade
+        let speakChance = {
             happy: 0.15,
             neutral: 0.05,
             sad: 0.10,
             dying: 0.20
         };
         
+        // Infantes falam mais, adultos são mais contemplativos
+        if (options.ageStage === 'infant') {
+            Object.keys(speakChance).forEach(k => speakChance[k] *= 1.5);
+        } else if (options.ageStage === 'adult') {
+            Object.keys(speakChance).forEach(k => speakChance[k] *= 0.7);
+        }
+        
         if (Math.random() > (speakChance[emotion] || 0.05)) {
             return null;
         }
         
         this.lastDialogueTime = now;
-        const dialogue = this.generateDialogue('idle', emotion, shapeId);
+        const dialogue = this.generateDialogue('idle', emotion, shapeId, options);
         
         if (this.onDialogue) {
             this.onDialogue(dialogue, emotion, 'idle');
@@ -393,9 +765,9 @@ class DialogueSystemClass {
     /**
      * Força uma fala imediata (ignora cooldown)
      */
-    speak(context, emotion, shapeId) {
+    speak(context, emotion, shapeId, options = {}) {
         this.lastDialogueTime = Date.now();
-        const dialogue = this.generateDialogue(context, emotion, shapeId);
+        const dialogue = this.generateDialogue(context, emotion, shapeId, options);
         
         if (this.onDialogue) {
             this.onDialogue(dialogue, emotion, context);

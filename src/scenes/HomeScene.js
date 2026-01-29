@@ -263,6 +263,14 @@ export default class HomeScene {
         uiContainer.innerHTML = `
             <div class="home-header">
                 <h2 class="room-title" id="mood-display">😊 Feliz</h2>
+                
+                <!-- Info de Idade, Vitalidade e Personalidade -->
+                <div class="pet-info-row" id="pet-info-row">
+                    <span class="pet-age" id="pet-age">🌱 Infante</span>
+                    <span class="pet-personality" id="pet-personality">☀️ Radiante</span>
+                    <span class="pet-vitality" id="pet-vitality">❤️ 75%</span>
+                </div>
+                
                 <div class="stats-panel">
                     <div class="stat">
                         <span class="stat-label">FOME</span>
@@ -302,7 +310,7 @@ export default class HomeScene {
                 <button id="edit-btn" class="action-btn secondary">✏️ Editar</button>
             </div>
             
-            <div class="hint-text" id="hint-text">Clique no chão para mover seu pet!</div> 
+            <div class="hint-text" id="hint-text">Clique no chão para mover seu GeoPet!</div> 
         `;
         
         document.getElementById('ui-layer').appendChild(uiContainer);
@@ -310,6 +318,9 @@ export default class HomeScene {
         this.hungerBar = document.getElementById('hunger-bar');
         this.happinessBar = document.getElementById('happiness-bar');
         this.energyBar = document.getElementById('energy-bar');
+        this.petAgeEl = document.getElementById('pet-age');
+        this.petPersonalityEl = document.getElementById('pet-personality');
+        this.petVitalityEl = document.getElementById('pet-vitality');
         
         // Bind events com sons - Ações positivas
         const feedBtn = document.getElementById('feed-btn');
@@ -380,6 +391,69 @@ export default class HomeScene {
             size: petSize,
             scale: 1
         });
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SETUP: Callbacks de Maturação (Age System)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // Callback quando muda de estágio de idade
+        this.pet.onAgeStageChange = (newStage, oldStage) => {
+            // Gera fala de mudança de estágio
+            const dialogue = DialogueSystem.generateAgeStageDialogue(newStage, oldStage, this.pet.shapeId);
+            if (dialogue) {
+                this.pet.say(dialogue, 'stageChange');
+                PetVoiceSystem.speak('Yay!', this.pet.shapeId, 'happy');
+                
+                // Squash animado
+                this.pet.squash(0.8, 1.3);
+            }
+        };
+        
+        // Callback de EFLORESCÊNCIA (quando atinge idade adulta)
+        this.pet.onReachAdulthood = () => {
+            this.triggerEfflorescence();
+        };
+    }
+    
+    /**
+     * Evento de Eflorescência - Celebração visual quando pet vira adulto
+     */
+    triggerEfflorescence() {
+        console.log('✧ EFLORESCÊNCIA - Pet atingiu maturidade! ✧');
+        
+        // Som especial
+        PetVoiceSystem.playBirth(this.pet.shapeId);
+        UISoundSystem.playSuccess();
+        
+        // Fala especial
+        const dialogue = DialogueSystem.speak('stageChange_young_adult', 'happy', this.pet.shapeId);
+        this.pet.say(dialogue, 'efflorescence');
+        
+        // Efeito de materialização celebrativo
+        this.materializationSystem.start(this.pet, this.renderer, 'spiral');
+        
+        // Efeitos visuais extras via PetEffectsSystem
+        if (this.effectsSystem) {
+            // Adiciona partículas douradas
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    this.effectsSystem.addParticle({
+                        x: this.pet.x + (Math.random() - 0.5) * 60,
+                        y: this.pet.y + (Math.random() - 0.5) * 60,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: -Math.random() * 4 - 2,
+                        color: `hsl(${45 + Math.random() * 20}, 100%, ${60 + Math.random() * 30}%)`,
+                        life: 120 + Math.random() * 60,
+                        size: 2 + Math.random() * 3
+                    });
+                }, i * 50);
+            }
+        }
+        
+        // Squash & Stretch celebrativo
+        this.pet.squash(0.6, 1.6);
+        setTimeout(() => this.pet.squash(1.4, 0.7), 200);
+        setTimeout(() => this.pet.squash(0.9, 1.1), 400);
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -401,7 +475,7 @@ export default class HomeScene {
             
             // Move o pet
             this.pet.moveTo(x, y);
-            this.showHint('Seu pet está se movendo!');
+            this.showHint('Seu GeoPet está se movendo!');
         }
     }
     
@@ -440,7 +514,7 @@ export default class HomeScene {
             pulsePhase: 0
         };
         
-        this.showHint('Comida apareceu! Seu pet vai até ela.');
+        this.showHint('Comida apareceu! Seu GeoPet vai até ela.');
         
         // Pet vai até a comida
         this.pet.moveTo(this.food.x, this.food.y);
@@ -631,6 +705,95 @@ export default class HomeScene {
         this.updateHungerBar();
         this.updateHappinessBar();
         this.updateEnergyBar();
+        this.updatePetInfo();
+    }
+    
+    updatePetInfo() {
+        if (!this.pet) return;
+        
+        // Atualiza Idade (Stage)
+        if (this.petAgeEl) {
+            const stageIcons = {
+                'infant': '👶',
+                'young': '🧒',
+                'adult': '🧑'
+            };
+            const stageNames = {
+                'infant': 'Bebê',
+                'young': 'Adolescente',
+                'adult': 'Adulto'
+            };
+            const stage = this.pet.ageStage || 'infant';
+            this.petAgeEl.textContent = `${stageIcons[stage]} ${stageNames[stage]}`;
+            
+            // Cor baseada no estágio
+            if (stage === 'infant') {
+                this.petAgeEl.style.color = '#ffb6c1';
+            } else if (stage === 'young') {
+                this.petAgeEl.style.color = '#87ceeb';
+            } else {
+                this.petAgeEl.style.color = '#98fb98';
+            }
+        }
+        
+        // Atualiza Personalidade
+        if (this.petPersonalityEl) {
+            const personalityIcons = {
+                'radiant': '☀️',
+                'melancholic': '🌙',
+                'unstable': '⚡',
+                'protective': '🛡️'
+            };
+            const personalityNames = {
+                'radiant': 'Radiante',
+                'melancholic': 'Melancólico',
+                'unstable': 'Instável',
+                'protective': 'Protetor'
+            };
+            const personality = this.pet.personality || 'radiant';
+            this.petPersonalityEl.textContent = `${personalityIcons[personality]} ${personalityNames[personality]}`;
+            
+            // Cor baseada na personalidade
+            const personalityColors = {
+                'radiant': '#ffd93d',
+                'melancholic': '#a29bfe',
+                'unstable': '#ff6b6b',
+                'protective': '#74b9ff'
+            };
+            this.petPersonalityEl.style.color = personalityColors[personality];
+        }
+        
+        // Atualiza Vitalidade
+        if (this.petVitalityEl) {
+            const vitality = Math.round((this.pet.vitalitySmoothed || this.pet.vitality || 0.5) * 100);
+            const isApex = this.pet.isAtApex;
+            
+            // Ícone baseado na vitalidade
+            let icon = '💀';
+            if (vitality >= 90) icon = '💖';
+            else if (vitality >= 70) icon = '❤️';
+            else if (vitality >= 50) icon = '🧡';
+            else if (vitality >= 30) icon = '💛';
+            else icon = '💔';
+            
+            if (isApex) {
+                this.petVitalityEl.textContent = `✨ ÁPICE ✨`;
+                this.petVitalityEl.style.color = '#ffd700';
+                this.petVitalityEl.style.textShadow = '0 0 8px #ffd700';
+            } else {
+                this.petVitalityEl.textContent = `${icon} ${vitality}%`;
+                this.petVitalityEl.style.textShadow = 'none';
+                
+                // Cor baseada na vitalidade
+                if (vitality >= 70) {
+                    this.petVitalityEl.style.color = '#00ff88';
+                } else if (vitality >= 40) {
+                    this.petVitalityEl.style.color = '#ffaa00';
+                } else {
+                    this.petVitalityEl.style.color = '#ff4444';
+                }
+            }
+        }
     }
     
     updateHappinessBar() {

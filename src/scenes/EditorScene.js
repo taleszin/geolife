@@ -136,7 +136,7 @@ export default class EditorScene {
             
             <div class="editor-section">
                 <h3>CONTORNO <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="border-color-btn" title="Cor do contorno neon"></button> <button class="color-reset-btn" id="border-color-reset" title="Resetar cor">✕</button><input type="color" id="border-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
-                <p class="section-hint">Cor do contorno neon do seu pet</p>
+                <p class="section-hint">Cor do contorno neon do seu GeoPet</p>
             </div>
             
             <div class="editor-section">
@@ -513,7 +513,7 @@ export default class EditorScene {
 
         // Feedback sonoro / visual
         UISoundSystem.playSelect();
-        PetVoiceSystem.playHappy();
+        PetVoiceSystem.speak('!', this.pet?.shapeId || 'circulo', 'happy');
     }
     
     // ═══════════════════════════════════════════════════════════════════

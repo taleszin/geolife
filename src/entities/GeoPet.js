@@ -173,6 +173,242 @@ export default class GeoPet {
         // Callbacks para sistemas externos
         this.onSpeak = null; // (text, emotion, context) => void
         this.onTypeLetter = null; // (letter) => void - para som de digitação
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE MATURAÇÃO (AGING)
+        // ═══════════════════════════════════════════════════════════════════
+        this.age = config.age ?? 0.0;                    // 0.0 = Infante, 1.0 = Adulto
+        this.ageAccumulator = config.ageAccumulator ?? 0; // Acumula progresso de crescimento
+        this.hasReachedAdulthood = config.hasReachedAdulthood ?? false; // Flag para evento único
+        
+        // Estágios de vida: Infante (0-0.3), Jovem (0.3-0.7), Adulto (0.7-1.0)
+        this.ageStage = this.calculateAgeStage();
+        this.previousAgeStage = this.ageStage;
+        
+        // Callback para eventos de crescimento
+        this.onAgeStageChange = null; // (newStage, oldStage) => void
+        this.onReachAdulthood = null; // () => void - evento de Eflorescência
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE VITALIDADE
+        // ═══════════════════════════════════════════════════════════════════
+        this.vitality = this.calculateVitality();        // Média ponderada dos stats
+        this.vitalitySmoothed = this.vitality;           // Versão suavizada (lerp)
+        this.isAtApex = false;                           // "Ápice da Matéria"
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE PERSONALIDADE (DNA COMPORTAMENTAL)
+        // ═══════════════════════════════════════════════════════════════════
+        // Tipos: 'radiant' (brilha mais), 'melancholic' (mais opaco), 
+        //        'unstable' (oscila), 'protective' (estável)
+        this.personality = config.personality || this.generateRandomPersonality();
+        
+        // Modificadores visuais baseados na personalidade (calculados em update)
+        this.personalityModifiers = {
+            glowMultiplier: 1.0,      // Multiplicador de brilho
+            saturationBoost: 0.0,     // Boost de saturação
+            flickerAmount: 0.0,       // Quantidade de oscilação
+            stabilityFactor: 1.0      // Fator de estabilidade
+        };
+        
+        // Tempo interno para efeitos de personalidade
+        this.personalityPhase = Math.random() * Math.PI * 2;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // SISTEMA DE MATURAÇÃO - Helpers
+    // ═══════════════════════════════════════════════════════════════════
+    
+    calculateAgeStage() {
+        if (this.age < 0.3) return 'infant';
+        if (this.age < 0.7) return 'young';
+        return 'adult';
+    }
+    
+    getAgeStageLabel() {
+        const labels = {
+            'infant': '🌱 Infante',
+            'young': '🌿 Jovem',
+            'adult': '🌳 Adulto'
+        };
+        return labels[this.ageStage] || '???';
+    }
+    
+    /**
+     * Retorna escala visual baseada na idade
+     * Crescimento gradual e natural com diferenças claras entre estágios
+     * 
+     * Bebê (0.0-0.3):      0.5x - 0.65x  (pequeninho, igual na criação)
+     * Adolescente (0.3-0.7): 0.65x - 0.85x (tamanho médio)
+     * Adulto (0.7-1.0):    0.85x - 1.1x  (tamanho completo)
+     */
+    getAgeScale() {
+        // Curva de crescimento suave com estágios distintos
+        if (this.age < 0.3) {
+            // Bebê: cresce devagar (0.5 -> 0.65)
+            const t = this.age / 0.3;
+            return 0.5 + t * 0.15;
+        } else if (this.age < 0.7) {
+            // Adolescente: crescimento moderado (0.65 -> 0.85)
+            const t = (this.age - 0.3) / 0.4;
+            return 0.65 + t * 0.20;
+        } else {
+            // Adulto: atinge tamanho final (0.85 -> 1.1)
+            const t = (this.age - 0.7) / 0.3;
+            return 0.85 + t * 0.25;
+        }
+    }
+    
+    /**
+     * Retorna fator de movimento errático (infantes são mais agitados)
+     */
+    getErraticFactor() {
+        // Infante: 1.0 (muito errático) -> Adulto: 0.1 (calmo)
+        return Math.max(0.1, 1.0 - this.age * 0.9);
+    }
+    
+    /**
+     * Retorna instabilidade de brilho (infantes piscam mais)
+     */
+    getGlowInstability() {
+        // Infante: 0.5 (muito instável) -> Adulto: 0.0 (estável)
+        return Math.max(0, 0.5 - this.age * 0.5);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // SISTEMA DE VITALIDADE - Helpers
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Calcula vitalidade como média ponderada
+     * hunger: 40%, happiness: 35%, energy: 25%
+     */
+    calculateVitality() {
+        return (this.hunger * 0.4 + this.happiness * 0.35 + this.energy * 0.25) / 100;
+    }
+    
+    /**
+     * Retorna multiplicador de brilho baseado na vitalidade
+     */
+    getVitalityGlowMultiplier() {
+        // Vitalidade baixa = pet "apagado" (0.3), alta = brilhante (1.5)
+        return 0.3 + this.vitalitySmoothed * 1.2;
+    }
+    
+    /**
+     * Retorna opacidade do material baseada na vitalidade
+     */
+    getVitalityOpacity() {
+        // Mínimo 40% de opacidade, máximo 100%
+        return 0.4 + this.vitalitySmoothed * 0.6;
+    }
+    
+    /**
+     * Verifica se está no "Ápice da Matéria"
+     * Adulto com vitalidade máxima
+     */
+    checkApexState() {
+        return this.age >= 0.9 && this.vitalitySmoothed > 0.85;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // SISTEMA DE PERSONALIDADE - Helpers
+    // ═══════════════════════════════════════════════════════════════════
+    
+    generateRandomPersonality() {
+        const types = ['radiant', 'melancholic', 'unstable', 'protective'];
+        return types[Math.floor(Math.random() * types.length)];
+    }
+    
+    getPersonalityLabel() {
+        const labels = {
+            'radiant': '☀️ Radiante',
+            'melancholic': '🌙 Melancólico',
+            'unstable': '⚡ Instável',
+            'protective': '🛡️ Protetor'
+        };
+        return labels[this.personality] || '???';
+    }
+    
+    /**
+     * Atualiza modificadores visuais baseados na personalidade
+     */
+    updatePersonalityModifiers(dt) {
+        this.personalityPhase += dt * 2; // Velocidade da oscilação
+        
+        switch (this.personality) {
+            case 'radiant':
+                // Brilha mais mesmo com stats médios
+                this.personalityModifiers.glowMultiplier = 1.3;
+                this.personalityModifiers.saturationBoost = 0.15;
+                this.personalityModifiers.flickerAmount = 0;
+                this.personalityModifiers.stabilityFactor = 1.1;
+                break;
+                
+            case 'melancholic':
+                // Mais opaco e contido
+                this.personalityModifiers.glowMultiplier = 0.75;
+                this.personalityModifiers.saturationBoost = -0.1;
+                this.personalityModifiers.flickerAmount = 0;
+                this.personalityModifiers.stabilityFactor = 0.9;
+                break;
+                
+            case 'unstable':
+                // Oscila como lâmpada com mau contato
+                const flicker = Math.sin(this.personalityPhase * 8) * 0.3 + 
+                               Math.sin(this.personalityPhase * 13) * 0.15 +
+                               (Math.random() - 0.5) * 0.1;
+                this.personalityModifiers.glowMultiplier = 1.0 + flicker;
+                this.personalityModifiers.saturationBoost = flicker * 0.2;
+                this.personalityModifiers.flickerAmount = Math.abs(flicker);
+                this.personalityModifiers.stabilityFactor = 0.7;
+                break;
+                
+            case 'protective':
+                // Estável e consistente
+                this.personalityModifiers.glowMultiplier = 1.0;
+                this.personalityModifiers.saturationBoost = 0;
+                this.personalityModifiers.flickerAmount = 0;
+                this.personalityModifiers.stabilityFactor = 1.3;
+                break;
+        }
+    }
+    
+    /**
+     * Retorna o multiplicador final de renderização combinando todos os sistemas
+     */
+    getRenderModifiers() {
+        const ageScale = this.getAgeScale();
+        const ageInstability = this.getGlowInstability();
+        const vitalityGlow = this.getVitalityGlowMultiplier();
+        const vitalityOpacity = this.getVitalityOpacity();
+        const isApex = this.isAtApex;
+        
+        // Combina personalidade com vitalidade
+        let finalGlow = vitalityGlow * this.personalityModifiers.glowMultiplier;
+        let finalOpacity = vitalityOpacity;
+        
+        // Instabilidade de infante
+        if (ageInstability > 0) {
+            const instabilityFlicker = Math.sin(Date.now() * 0.01) * ageInstability;
+            finalGlow += instabilityFlicker * 0.3;
+        }
+        
+        // Ápice da Matéria - boost especial
+        if (isApex) {
+            finalGlow *= 1.5;
+            finalOpacity = 1.0;
+        }
+        
+        return {
+            scale: ageScale,
+            glowIntensity: Math.max(0.2, Math.min(2.0, finalGlow)),
+            opacity: Math.max(0.3, Math.min(1.0, finalOpacity)),
+            saturationBoost: this.personalityModifiers.saturationBoost,
+            isApex: isApex,
+            erraticFactor: this.getErraticFactor(),
+            flickerAmount: this.personalityModifiers.flickerAmount + ageInstability
+        };
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -185,6 +421,11 @@ export default class GeoPet {
         // Atualiza stats
         this.updateStats(dt);
         
+        // Atualiza sistemas de Maturação e Vitalidade
+        this.updateAging(dt);
+        this.updateVitality(dt);
+        this.updatePersonalityModifiers(dt);
+        
         // Atualiza mood baseado nos stats (SISTEMA EXPANDIDO)
         this.updateMood(dt);
         
@@ -194,7 +435,7 @@ export default class GeoPet {
         // Atualiza animações
         this.updateAnimations(dt);
         
-        // Atualiza movimento
+        // Atualiza movimento (com fator errático de infante)
         this.updateMovement(dt);
         
         // Atualiza diálogos
@@ -235,6 +476,64 @@ export default class GeoPet {
                 this.mistreatmentDecay = 0;
             }
         }
+    }
+    
+    /**
+     * Sistema de Maturação (Aging)
+     * O pet cresce baseado no tempo e na qualidade dos cuidados
+     */
+    updateAging(dt) {
+        // Taxa base de envelhecimento: ~1 minuto para crescer completamente (0 -> 1)
+        // Com cuidados perfeitos, acelera para ~40 segundos
+        const baseAgeRate = 1 / 60; // 1.0 em 60 segundos = 1 minuto
+        
+        // Qualidade dos cuidados acelera o crescimento saudável
+        const careQuality = this.calculateVitality();
+        const ageMultiplier = 0.5 + careQuality * 1.0; // 0.5x a 1.5x
+        
+        // Acumula idade
+        const ageIncrement = baseAgeRate * ageMultiplier * dt;
+        this.age = Math.min(1.0, this.age + ageIncrement);
+        
+        // Verifica mudança de estágio
+        const newStage = this.calculateAgeStage();
+        if (newStage !== this.ageStage) {
+            const oldStage = this.ageStage;
+            this.previousAgeStage = oldStage;
+            this.ageStage = newStage;
+            
+            // Callback de mudança de estágio
+            if (this.onAgeStageChange) {
+                this.onAgeStageChange(newStage, oldStage);
+            }
+        }
+        
+        // Verifica se atingiu a idade adulta pela primeira vez
+        if (!this.hasReachedAdulthood && this.age >= 0.7) {
+            this.hasReachedAdulthood = true;
+            
+            // Callback de Eflorescência!
+            if (this.onReachAdulthood) {
+                this.onReachAdulthood();
+            }
+        }
+    }
+    
+    /**
+     * Sistema de Vitalidade
+     * Atualiza a vitalidade com suavização (lerp)
+     */
+    updateVitality(dt) {
+        // Calcula vitalidade atual
+        const targetVitality = this.calculateVitality();
+        
+        // Suaviza com lerp (evita mudanças bruscas)
+        const lerpSpeed = 2.0; // Velocidade de transição
+        this.vitalitySmoothed += (targetVitality - this.vitalitySmoothed) * lerpSpeed * dt;
+        this.vitality = targetVitality;
+        
+        // Verifica estado de Ápice
+        this.isAtApex = this.checkApexState();
     }
     
     /**
@@ -572,9 +871,17 @@ export default class GeoPet {
     // ═══════════════════════════════════════════════════════════════════
     
     render(renderer, materializationSystem = null) {
+        // Obtém modificadores de renderização (Age + Vitality + Personality)
+        const mods = this.getRenderModifiers();
+        
         const breathOffset = this.faceParams.breathY;
-        const scaleX = this.scale * this.squashX;
-        const scaleY = this.scale * this.squashY * (1 + Math.sin(this.breathPhase) * 0.02);
+        // Aplica escala de idade ao scale base
+        const ageScale = mods.scale;
+        const scaleX = this.scale * this.squashX * ageScale;
+        const scaleY = this.scale * this.squashY * ageScale * (1 + Math.sin(this.breathPhase) * 0.02);
+        
+        // Passa modificadores para o MaterialRenderer
+        materialRenderer.setVitalityModifiers(mods);
         
         // Se está materializando, usa renderização especial
         if (materializationSystem && materializationSystem.isActive) {
@@ -582,8 +889,13 @@ export default class GeoPet {
             return;
         }
         
-        // 1. Glow/Aura (efeito neon)
-        this.drawGlow(renderer);
+        // 1. Glow/Aura (efeito neon) - modificado pela vitalidade
+        this.drawGlow(renderer, mods);
+        
+        // 2. Partículas de Ápice (se no estado máximo)
+        if (mods.isApex) {
+            this.drawApexParticles(renderer);
+        }
         
         // 2. Corpo
         this.drawBody(renderer, breathOffset, scaleX, scaleY);
@@ -799,21 +1111,74 @@ export default class GeoPet {
         this.tempFaceAlpha = 1;
     }
     
-    drawGlow(renderer) {
+    drawGlow(renderer, mods = null) {
         // Usa a cor do material para o glow
         const material = getMaterialById(this.materialId);
         const glowColor = material ? material.palette.glow : this.primaryColor;
-        const { r, g, b } = renderer.hexToRgb(glowColor);
-        const glowRadius = this.size * this.scale * 1.6;
+        let { r, g, b } = renderer.hexToRgb(glowColor);
         
-        // Intensidade do glow varia por material
-        const intensity = material ? material.render.glowIntensity : 0.5;
+        // Aplica escala de idade ao raio
+        const ageScale = mods ? mods.scale : 1.0;
+        const glowRadius = this.size * this.scale * ageScale * 1.6;
+        
+        // Intensidade do glow varia por material e vitalidade
+        const baseIntensity = material ? material.render.glowIntensity : 0.5;
+        const vitalityMod = mods ? mods.glowIntensity : 1.0;
+        const intensity = baseIntensity * vitalityMod;
+        
+        // Aplica boost de saturação da personalidade
+        if (mods && mods.saturationBoost !== 0) {
+            const boost = mods.saturationBoost;
+            r = Math.min(255, Math.max(0, r + r * boost));
+            g = Math.min(255, Math.max(0, g + g * boost));
+            b = Math.min(255, Math.max(0, b + b * boost));
+        }
+        
+        // Flicker effect (instabilidade)
+        let flickerMod = 1.0;
+        if (mods && mods.flickerAmount > 0) {
+            flickerMod = 1.0 + (Math.sin(Date.now() * 0.015) * mods.flickerAmount * 0.5);
+        }
         
         // Múltiplas camadas de glow
         for (let layer = 4; layer >= 1; layer--) {
             const radius = glowRadius + layer * 6;
-            const alpha = Math.round(25 * intensity * (1 - layer / 5));
+            const alpha = Math.round(25 * intensity * flickerMod * (1 - layer / 5));
             renderer.drawCircleRgba(this.x, this.y, radius, r, g, b, alpha);
+        }
+        
+        // Ápice: camada extra de brilho dourado
+        if (mods && mods.isApex) {
+            const apexPulse = 0.5 + Math.sin(Date.now() * 0.003) * 0.5;
+            renderer.drawCircleRgba(this.x, this.y, glowRadius * 1.3, 255, 223, 100, Math.round(30 * apexPulse));
+        }
+    }
+    
+    /**
+     * Desenha partículas de Ápice (estado máximo)
+     * Partículas douradas orbitando o pet
+     */
+    drawApexParticles(renderer) {
+        const time = Date.now() * 0.002;
+        const numParticles = 8;
+        const orbitRadius = this.size * this.scale * 1.8;
+        
+        for (let i = 0; i < numParticles; i++) {
+            const angle = time + (i / numParticles) * Math.PI * 2;
+            const wobble = Math.sin(time * 2 + i) * 5;
+            
+            const px = this.x + Math.cos(angle) * (orbitRadius + wobble);
+            const py = this.y + Math.sin(angle) * (orbitRadius * 0.6 + wobble);
+            
+            // Tamanho varia com a posição
+            const size = 2 + Math.sin(time * 3 + i * 0.5) * 1;
+            
+            // Cor dourada brilhante
+            const brightness = 200 + Math.sin(time * 4 + i) * 55;
+            renderer.fillCircle(px, py, size, `rgb(${brightness}, ${brightness * 0.85}, ${brightness * 0.3})`);
+            
+            // Glow da partícula
+            renderer.drawCircleRgba(px, py, size + 2, 255, 220, 100, 60);
         }
     }
     
@@ -2283,7 +2648,13 @@ export default class GeoPet {
             borderColor: this.borderColor,
             hunger: this.hunger,
             happiness: this.happiness,
-            energy: this.energy
+            energy: this.energy,
+            // Sistema de Maturação
+            age: this.age,
+            ageAccumulator: this.ageAccumulator,
+            hasReachedAdulthood: this.hasReachedAdulthood,
+            // Sistema de Personalidade
+            personality: this.personality
         };
     }
     

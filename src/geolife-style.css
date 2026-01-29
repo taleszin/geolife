@@ -412,7 +412,40 @@ body::after {
     color: var(--neon-cyan);
     text-align: center;
     text-shadow: 0 0 10px var(--neon-cyan);
-    margin-bottom: 15px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+/* Pet Info Row - Idade, Personalidade, Vitalidade */
+.pet-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    font-size: 9px;
+    gap: 8px;
+}
+
+.pet-age {
+    color: #a8e6cf;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.pet-personality {
+    color: #ffd93d;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.pet-vitality {
+    color: #00ff88;
+    font-weight: bold;
+    letter-spacing: 0.5px;
     transition: all 0.3s ease;
 }
 

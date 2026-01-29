@@ -217,7 +217,7 @@ export default class MobileEditorScene {
                 width: 44,
                 height: createBtn.height
             };
-        
+        }
     }
     
     // ═══════════════════════════════════════════════════════════════════════
@@ -446,7 +446,7 @@ export default class MobileEditorScene {
             
             // Feedback sonoro
             if (e.intensity > 0.5) {
-                PetVoiceSystem.playHappy();
+                PetVoiceSystem.speak('~', this.pet.shapeId, 'tickled');
             }
         }
     }
@@ -565,7 +565,7 @@ export default class MobileEditorScene {
 
         // Feedback sonoro e visual
         UISoundSystem.playSelect();
-        PetVoiceSystem.playHappy();
+        PetVoiceSystem.speak('!', this.pet?.shapeId || 'circulo', 'happy');
         this.renderer.markDirty();
     }
     
