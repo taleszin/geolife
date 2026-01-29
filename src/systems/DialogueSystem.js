@@ -76,7 +76,7 @@ export const DIALOGUES = {
         dying: [
             "Socorro...",
             "Muito... fraco...",
-            "*tremendo*",
+            "adeus existência",
             "Preciso... comer...",
             "Me ajuda...",
             "Não aguento...",

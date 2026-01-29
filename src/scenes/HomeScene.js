@@ -173,14 +173,32 @@ export default class HomeScene {
     
     /**
      * Atualiza tamanho do canvas de forma responsiva
+     * Canvas expansivo que prioriza a visualização do pet
      */
     updateCanvasSize() {
-        // Calcula tamanho baseado na janela
-        const maxWidth = Math.min(window.innerWidth - 40, 900);
-        const maxHeight = Math.min(window.innerHeight - 280, 700); // Espaço para UI
+        const isMobile = window.innerWidth <= 800;
+        const isLandscape = window.innerWidth > window.innerHeight;
         
-        // Mantém aspect ratio 4:3 para consistência
-        const aspectRatio = 4 / 3;
+        let maxWidth, maxHeight;
+        
+        if (isMobile) {
+            if (isLandscape) {
+                // Mobile landscape: canvas à esquerda, UI à direita
+                maxWidth = window.innerWidth - 200;
+                maxHeight = window.innerHeight - 20;
+            } else {
+                // Mobile portrait: canvas em cima, UI embaixo
+                maxWidth = window.innerWidth - 20;
+                maxHeight = window.innerHeight * 0.55;
+            }
+        } else {
+            // Desktop: canvas grande no centro, UI lateral
+            maxWidth = Math.min(window.innerWidth - 260, 1200);
+            maxHeight = Math.min(window.innerHeight - 60, 900);
+        }
+        
+        // Aspect ratio 16:10 (mais cinematográfico e amplo)
+        const aspectRatio = 16 / 10;
         let width, height;
         
         if (maxWidth / maxHeight > aspectRatio) {
@@ -191,9 +209,9 @@ export default class HomeScene {
             height = width / aspectRatio;
         }
         
-        // Garante mínimos para mobile
-        width = Math.max(320, Math.floor(width));
-        height = Math.max(240, Math.floor(height));
+        // Garante mínimos
+        width = Math.max(360, Math.floor(width));
+        height = Math.max(225, Math.floor(height));
         
         this.canvas.width = width;
         this.canvas.height = height;

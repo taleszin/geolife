@@ -566,7 +566,11 @@ export default class GeoPet {
         const e = this.energy;
         const avg = (h + hp + e) / 3;
         
-        // Prioridade 1: Estados críticos
+        // Prioridade 1: Estados críticos - baseado em vitalidade
+        const vitality = this.vitalitySmoothed || this.vitality || this.calculateVitality();
+        if (vitality <= 0.10) return MOOD_TYPES.DYING; // 10% ou menos = dying
+        
+        // Prioridade 1.5: Estados críticos por média
         if (avg < 20) return MOOD_TYPES.DYING;
         
         // Prioridade 2: Maltratado recentemente
@@ -873,6 +877,18 @@ export default class GeoPet {
     render(renderer, materializationSystem = null) {
         // Obtém modificadores de renderização (Age + Vitality + Personality)
         const mods = this.getRenderModifiers();
+        
+        // ═══ EFEITO DE PISCAR QUANDO DYING (vitalidade <= 10%) ═══
+        const vitality = this.vitalitySmoothed || this.vitality || this.calculateVitality();
+        if (vitality <= 0.10) {
+            // Piscar urgente - alterna entre visível/invisível
+            const blinkSpeed = 8; // Rápido
+            const blinkPhase = Math.sin(Date.now() * 0.001 * blinkSpeed);
+            if (blinkPhase < 0) {
+                // Não renderiza neste frame = efeito de piscar
+                return;
+            }
+        }
         
         const breathOffset = this.faceParams.breathY;
         // Aplica escala de idade ao scale base
