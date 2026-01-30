@@ -1816,7 +1816,7 @@ export default class HomeScene {
             else icon = '💔';
             
             if (isApex) {
-                this.petVitalityEl.textContent = `✨ ÁPICE ✨`;
+                this.petVitalityEl.textContent = `ÁPICE`;
                 this.petVitalityEl.style.color = '#ffd700';
                 this.petVitalityEl.style.textShadow = '0 0 8px #ffd700';
             } else {
