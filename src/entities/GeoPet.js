@@ -185,6 +185,11 @@ export default class GeoPet {
         this.ageStage = this.calculateAgeStage();
         this.previousAgeStage = this.ageStage;
         
+        // ═══ SISTEMA DE CRESCIMENTO INDIVIDUAL ═══
+        // Cada pet nasce com um potencial de crescimento único!
+        // Varia de 1.8x a 2.5x do tamanho base (dobro ou mais do adulto anterior)
+        this.maxGrowthScale = config.maxGrowthScale ?? this.generateMaxGrowthScale();
+        
         // Callback para eventos de crescimento
         this.onAgeStageChange = null; // (newStage, oldStage) => void
         this.onReachAdulthood = null; // () => void - evento de Eflorescência
@@ -195,6 +200,24 @@ export default class GeoPet {
         this.vitality = this.calculateVitality();        // Média ponderada dos stats
         this.vitalitySmoothed = this.vitality;           // Versão suavizada (lerp)
         this.isAtApex = false;                           // "Ápice da Matéria"
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE COLAPSO SISTÊMICO (Morte)
+        // O pet pode morrer quando a vitalidade chega a 0
+        // ═══════════════════════════════════════════════════════════════════
+        this.instability = 0;                    // 0-1, cresce quando vitalidade < 15%
+        this.isCollapsing = false;               // Flag de colapso ativo
+        this.collapseProgress = 0;               // 0-1, progresso do colapso
+        this.collapseStage = 0;                  // 0-4, estágios do colapso
+        this.isDead = false;                     // Pet morreu completamente
+        this.collapseParticles = [];             // Partículas de dissolução
+        this.lastCollapseDialogue = 0;           // Timer para falas de colapso
+        this.collapseDialogueInterval = 2000;    // Intervalo entre falas
+        
+        // Callbacks de colapso
+        this.onCollapseStart = null;             // () => void - início do colapso
+        this.onCollapseProgress = null;          // (stage, progress) => void
+        this.onDeath = null;                     // () => void - morte completa
         
         // ═══════════════════════════════════════════════════════════════════
         // SISTEMA DE PERSONALIDADE (DNA COMPORTAMENTAL)
@@ -235,27 +258,57 @@ export default class GeoPet {
     }
     
     /**
+     * Gera potencial de crescimento único para este pet
+     * Cada pet cresce até um tamanho diferente (1.8x a 2.5x do base)
+     * Isso cria diversidade e surpresa no crescimento!
+     */
+    generateMaxGrowthScale() {
+        // Distribuição levemente enviesada para tamanhos maiores serem mais raros
+        // Base: 1.8x, máximo: 2.5x (média ~2.1x)
+        const baseMin = 1.8;
+        const baseMax = 2.5;
+        
+        // Usa distribuição normal-ish para raridade
+        const r1 = Math.random();
+        const r2 = Math.random();
+        const gaussian = (r1 + r2) / 2; // Aproximação de normal
+        
+        return baseMin + gaussian * (baseMax - baseMin);
+    }
+    
+    /**
      * Retorna escala visual baseada na idade
-     * Crescimento gradual e natural com diferenças claras entre estágios
+     * Crescimento gradual e natural com diferenças MUITO claras entre estágios
+     * O pet nasce MUITO PEQUENO e cresce até seu maxGrowthScale único!
      * 
-     * Bebê (0.0-0.3):      0.5x - 0.65x  (pequeninho, igual na criação)
-     * Adolescente (0.3-0.7): 0.65x - 0.85x (tamanho médio)
-     * Adulto (0.7-1.0):    0.85x - 1.1x  (tamanho completo)
+     * Bebê (0.0-0.3):       0.15x - 0.40x  (minúsculo, como semente!)
+     * Adolescente (0.3-0.7): 0.40x - 1.00x (GROWTH SPURT! crescimento explosivo)
+     * Adulto (0.7-1.0):     1.00x - maxGrowthScale (finaliza em tamanho épico!)
      */
     getAgeScale() {
-        // Curva de crescimento suave com estágios distintos
+        const maxScale = this.maxGrowthScale || 2.0; // Fallback
+        
+        // Curva de crescimento com "growth spurts" (surtos de crescimento)
         if (this.age < 0.3) {
-            // Bebê: cresce devagar (0.5 -> 0.65)
+            // Bebê: minúsculo como semente! (0.15 -> 0.40)
             const t = this.age / 0.3;
-            return 0.5 + t * 0.15;
+            // Ease-out com bounce sutil para sentir o crescimento
+            const eased = 1 - Math.pow(1 - t, 2.5);
+            return 0.15 + eased * 0.25;
         } else if (this.age < 0.7) {
-            // Adolescente: crescimento moderado (0.65 -> 0.85)
+            // Adolescente: GROWTH SPURT! (0.40 -> 1.00)
+            // Crescimento explosivo e muito visível!
             const t = (this.age - 0.3) / 0.4;
-            return 0.65 + t * 0.20;
+            // Ease-out forte para crescimento rápido e impactante
+            const eased = 1 - Math.pow(1 - t, 2);
+            return 0.40 + eased * 0.60;
         } else {
-            // Adulto: atinge tamanho final (0.85 -> 1.1)
+            // Adulto: alcança potencial máximo único! (1.00 -> maxScale)
             const t = (this.age - 0.7) / 0.3;
-            return 0.85 + t * 0.25;
+            // Ease-out suave para finalizar majestosamente
+            const eased = 1 - Math.pow(1 - t, 4);
+            const finalRange = maxScale - 1.0;
+            return 1.0 + eased * finalRange;
         }
     }
     
@@ -418,6 +471,12 @@ export default class GeoPet {
     update(deltaTime = 16) {
         const dt = deltaTime / 1000; // Converte para segundos
         
+        // Se está morto, não atualiza mais nada exceto partículas
+        if (this.isDead) {
+            this.updateCollapseParticles(dt);
+            return;
+        }
+        
         // Atualiza stats
         this.updateStats(dt);
         
@@ -425,6 +484,11 @@ export default class GeoPet {
         this.updateAging(dt);
         this.updateVitality(dt);
         this.updatePersonalityModifiers(dt);
+        
+        // Atualiza sistema de colapso se ativo
+        if (this.isCollapsing) {
+            this.updateCollapse(dt);
+        }
         
         // Atualiza mood baseado nos stats (SISTEMA EXPANDIDO)
         this.updateMood(dt);
@@ -435,8 +499,10 @@ export default class GeoPet {
         // Atualiza animações
         this.updateAnimations(dt);
         
-        // Atualiza movimento (com fator errático de infante)
-        this.updateMovement(dt);
+        // Atualiza movimento (com fator errático de infante) - mais lento se instável
+        if (!this.isCollapsing) {
+            this.updateMovement(dt);
+        }
         
         // Atualiza diálogos
         this.updateDialogue(deltaTime);
@@ -481,15 +547,17 @@ export default class GeoPet {
     /**
      * Sistema de Maturação (Aging)
      * O pet cresce baseado no tempo e na qualidade dos cuidados
+     * BALANCEAMENTO: Crescimento gradual e orgânico para experiência juicy!
      */
     updateAging(dt) {
-        // Taxa base de envelhecimento: ~1 minuto para crescer completamente (0 -> 1)
-        // Com cuidados perfeitos, acelera para ~40 segundos
-        const baseAgeRate = 1 / 60; // 1.0 em 60 segundos = 1 minuto
+        // Taxa base de envelhecimento: ~3 minutos para crescimento completo
+        // Lento e gradual o suficiente para apreciar cada estágio de crescimento
+        const baseAgeRate = 1 / 120; // 1.0 em 120 segundos (2 minutos) base
         
-        // Qualidade dos cuidados acelera o crescimento saudável
+        // Qualidade dos cuidados influencia o crescimento de forma suave
         const careQuality = this.calculateVitality();
-        const ageMultiplier = 0.5 + careQuality * 1.0; // 0.5x a 1.5x
+        // Multiplier suave: 0.8x (negligência) a 1.4x (cuidado perfeito)
+        const ageMultiplier = 0.8 + careQuality * 0.6;
         
         // Acumula idade
         const ageIncrement = baseAgeRate * ageMultiplier * dt;
@@ -534,6 +602,255 @@ export default class GeoPet {
         
         // Verifica estado de Ápice
         this.isAtApex = this.checkApexState();
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE INSTABILIDADE E COLAPSO
+        // Quando vitalidade < 15%, instabilidade começa a crescer
+        // ═══════════════════════════════════════════════════════════════════
+        this.updateInstability(dt);
+    }
+    
+    /**
+     * Atualiza instabilidade sistêmica
+     * Cresce exponencialmente quando vitalidade está baixa
+     */
+    updateInstability(dt) {
+        if (this.isDead) return;
+        
+        const vitality = this.vitalitySmoothed;
+        
+        // Instabilidade começa quando vitalidade < 15%
+        if (vitality < 0.15) {
+            // Quanto menor a vitalidade, mais rápido cresce a instabilidade
+            const severityFactor = 1 - (vitality / 0.15); // 0-1
+            const growthRate = 0.05 + severityFactor * 0.15; // 0.05 - 0.20 por segundo
+            
+            // Crescimento exponencial
+            this.instability = Math.min(1.0, this.instability + growthRate * dt * (1 + this.instability));
+            
+            // Quando vitalidade = 0, inicia colapso
+            if (vitality <= 0.01 && !this.isCollapsing) {
+                this.startCollapse();
+            }
+        } else {
+            // Recuperação RÁPIDA da instabilidade quando cuidado
+            // Quanto maior a vitalidade, mais rápida a recuperação
+            const recoveryRate = 0.15 + vitality * 0.25; // 0.15 - 0.40 por segundo
+            this.instability = Math.max(0, this.instability - recoveryRate * dt);
+        }
+    }
+    
+    /**
+     * Inicia o processo de colapso sistêmico (morte)
+     */
+    startCollapse() {
+        if (this.isCollapsing || this.isDead) return;
+        
+        this.isCollapsing = true;
+        this.collapseProgress = 0;
+        this.collapseStage = 1;
+        this.instability = 1.0;
+        
+        // Gera partículas iniciais de dissolução
+        this.generateCollapseParticles(50);
+        
+        // Callback
+        if (this.onCollapseStart) {
+            this.onCollapseStart();
+        }
+        
+        console.log('💀 COLAPSO SISTÊMICO INICIADO');
+    }
+    
+    /**
+     * Atualiza o processo de colapso
+     */
+    updateCollapse(dt) {
+        if (!this.isCollapsing || this.isDead) return;
+        
+        // Progresso do colapso (5 segundos total)
+        const collapseSpeed = 0.2; // 20% por segundo = 5 segundos
+        this.collapseProgress = Math.min(1.0, this.collapseProgress + collapseSpeed * dt);
+        
+        // Atualiza estágio baseado no progresso
+        const newStage = Math.floor(this.collapseProgress * 4) + 1;
+        if (newStage !== this.collapseStage) {
+            this.collapseStage = Math.min(4, newStage);
+            
+            // Callback de progresso
+            if (this.onCollapseProgress) {
+                this.onCollapseProgress(this.collapseStage, this.collapseProgress);
+            }
+            
+            // Gera mais partículas a cada estágio
+            this.generateCollapseParticles(30 + this.collapseStage * 20);
+        }
+        
+        // Atualiza partículas de colapso
+        this.updateCollapseParticles(dt);
+        
+        // Morte completa
+        if (this.collapseProgress >= 1.0) {
+            this.completeDeath();
+        }
+    }
+    
+    /**
+     * Gera partículas de dissolução do pet
+     */
+    generateCollapseParticles(count) {
+        const ageScale = this.getAgeScale();
+        const petRadius = this.size * this.scale * ageScale;
+        
+        for (let i = 0; i < count; i++) {
+            // Posição aleatória dentro do pet
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * petRadius;
+            
+            this.collapseParticles.push({
+                x: this.x + Math.cos(angle) * dist,
+                y: this.y + Math.sin(angle) * dist,
+                vx: (Math.random() - 0.5) * 3,
+                vy: (Math.random() - 0.5) * 3 - 1, // Bias para cima (alma subindo)
+                size: 1 + Math.random() * 3,
+                life: 1.0,
+                decay: 0.02 + Math.random() * 0.03,
+                color: Math.random() > 0.3 ? this.primaryColor : '#888888', // Mistura cor + cinza
+                isStatic: Math.random() > 0.7 // Algumas partículas são estática pura
+            });
+        }
+    }
+    
+    /**
+     * Atualiza partículas de colapso
+     */
+    updateCollapseParticles(dt) {
+        for (let i = this.collapseParticles.length - 1; i >= 0; i--) {
+            const p = this.collapseParticles[i];
+            
+            // Movimento errático (glitch)
+            p.x += p.vx + (Math.random() - 0.5) * 2;
+            p.y += p.vy + (Math.random() - 0.5) * 2;
+            
+            // Gravidade inversa sutil (dissolve para cima)
+            p.vy -= 0.05;
+            
+            // Decai vida
+            p.life -= p.decay;
+            
+            // Remove partículas mortas
+            if (p.life <= 0) {
+                this.collapseParticles.splice(i, 1);
+            }
+        }
+    }
+    
+    /**
+     * Completa o processo de morte
+     */
+    completeDeath() {
+        this.isDead = true;
+        this.isCollapsing = false;
+        this.collapseProgress = 1.0;
+        this.collapseStage = 4;
+        
+        // Callback de morte
+        if (this.onDeath) {
+            this.onDeath();
+        }
+        
+        console.log('☠️ PET MORREU - GAME OVER');
+    }
+    
+    /**
+     * Retorna o fator de glitch visual baseado na instabilidade
+     */
+    getGlitchFactor() {
+        if (this.isDead) return 1.0;
+        if (this.isCollapsing) return 0.5 + this.collapseProgress * 0.5;
+        return this.instability;
+    }
+    
+    /**
+     * Retorna jitter para coordenadas (tremor de vértices)
+     */
+    getVertexJitter() {
+        const glitch = this.getGlitchFactor();
+        if (glitch < 0.1) return { x: 0, y: 0 };
+        
+        const intensity = glitch * 8; // Até 8 pixels de desvio
+        return {
+            x: (Math.random() - 0.5) * intensity,
+            y: (Math.random() - 0.5) * intensity
+        };
+    }
+    
+    /**
+     * Verifica se uma scanline deve ser ignorada (falha de scanline)
+     */
+    shouldSkipScanline(y) {
+        const glitch = this.getGlitchFactor();
+        if (glitch < 0.2) return false;
+        
+        // Chance de pular aumenta com instabilidade
+        const skipChance = glitch * 0.3; // Até 30% de chance
+        
+        // Padrão de scanline mais evidente
+        const scanlinePattern = Math.sin(y * 0.5 + Date.now() * 0.01) > 0;
+        
+        return scanlinePattern && Math.random() < skipChance;
+    }
+    
+    /**
+     * Retorna cor corrompida (dessaturação + estática)
+     */
+    getCorruptedColor(originalColor, renderer) {
+        const glitch = this.getGlitchFactor();
+        if (glitch < 0.1) return originalColor;
+        
+        let { r, g, b } = renderer.hexToRgb(originalColor);
+        
+        // Dessaturação progressiva
+        const gray = (r + g + b) / 3;
+        const saturationLoss = glitch * 0.7;
+        r = Math.round(r + (gray - r) * saturationLoss);
+        g = Math.round(g + (gray - g) * saturationLoss);
+        b = Math.round(b + (gray - b) * saturationLoss);
+        
+        // Ruído de estática
+        if (Math.random() < glitch * 0.4) {
+            const noise = (Math.random() - 0.5) * 100 * glitch;
+            r = Math.min(255, Math.max(0, r + noise));
+            g = Math.min(255, Math.max(0, g + noise));
+            b = Math.min(255, Math.max(0, b + noise));
+        }
+        
+        // Piscar em tons de erro (vermelho/magenta)
+        if (Math.random() < glitch * 0.15) {
+            return '#ff0066';
+        }
+        
+        return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+    }
+    
+    /**
+     * Retorna alpha corrompido (piscar/transparência)
+     */
+    getCorruptedAlpha(baseAlpha = 255) {
+        const glitch = this.getGlitchFactor();
+        if (glitch < 0.1) return baseAlpha;
+        
+        // Flicker aleatório
+        if (Math.random() < glitch * 0.3) {
+            return Math.floor(baseAlpha * (0.3 + Math.random() * 0.4));
+        }
+        
+        // Fade gradual durante colapso
+        if (this.isCollapsing) {
+            return Math.floor(baseAlpha * (1 - this.collapseProgress * 0.8));
+        }
+        
+        return baseAlpha;
     }
     
     /**
@@ -875,17 +1192,40 @@ export default class GeoPet {
     // ═══════════════════════════════════════════════════════════════════
     
     render(renderer, materializationSystem = null) {
+        // Se morreu completamente, renderiza apenas partículas de dissolução
+        if (this.isDead) {
+            this.renderCollapseParticles(renderer);
+            return;
+        }
+        
         // Obtém modificadores de renderização (Age + Vitality + Personality)
         const mods = this.getRenderModifiers();
         
+        // ═══ EFEITOS DE GLITCH (Instabilidade/Colapso) ═══
+        const glitchFactor = this.getGlitchFactor();
+        
+        // Piscar durante instabilidade alta ou colapso
+        if (glitchFactor > 0.3) {
+            const blinkIntensity = glitchFactor * 12;
+            const blinkPhase = Math.sin(Date.now() * 0.001 * blinkIntensity);
+            // Durante colapso, pisca mais (até 40% invisível)
+            const threshold = this.isCollapsing ? -0.2 : -0.5;
+            if (blinkPhase < threshold) {
+                // Renderiza apenas partículas durante frames "invisíveis"
+                if (this.isCollapsing) {
+                    this.renderCollapseParticles(renderer);
+                }
+                return;
+            }
+        }
+        
         // ═══ EFEITO DE PISCAR QUANDO DYING (vitalidade <= 10%) ═══
         const vitality = this.vitalitySmoothed || this.vitality || this.calculateVitality();
-        if (vitality <= 0.10) {
+        if (vitality <= 0.10 && !this.isCollapsing) {
             // Piscar urgente - alterna entre visível/invisível
             const blinkSpeed = 8; // Rápido
             const blinkPhase = Math.sin(Date.now() * 0.001 * blinkSpeed);
             if (blinkPhase < 0) {
-                // Não renderiza neste frame = efeito de piscar
                 return;
             }
         }
@@ -893,11 +1233,25 @@ export default class GeoPet {
         const breathOffset = this.faceParams.breathY;
         // Aplica escala de idade ao scale base
         const ageScale = mods.scale;
-        const scaleX = this.scale * this.squashX * ageScale;
-        const scaleY = this.scale * this.squashY * ageScale * (1 + Math.sin(this.breathPhase) * 0.02);
+        
+        // ═══ JITTER DE VÉRTICES durante instabilidade ═══
+        const jitter = this.getVertexJitter();
+        const jitterX = jitter.x;
+        const jitterY = jitter.y;
+        
+        // Durante colapso, o pet "encolhe" gradualmente
+        const collapseScale = this.isCollapsing ? (1 - this.collapseProgress * 0.6) : 1;
+        
+        const scaleX = this.scale * this.squashX * ageScale * collapseScale;
+        const scaleY = this.scale * this.squashY * ageScale * collapseScale * (1 + Math.sin(this.breathPhase) * 0.02);
         
         // Passa modificadores para o MaterialRenderer
         materialRenderer.setVitalityModifiers(mods);
+        
+        // Armazena glitch factor para uso nos métodos de desenho
+        this._currentGlitchFactor = glitchFactor;
+        this._currentJitter = { x: jitterX, y: jitterY };
+        this._currentRenderer = renderer;
         
         // Se está materializando, usa renderização especial
         if (materializationSystem && materializationSystem.isActive) {
@@ -905,19 +1259,250 @@ export default class GeoPet {
             return;
         }
         
-        // 1. Glow/Aura (efeito neon) - modificado pela vitalidade
-        this.drawGlow(renderer, mods);
+        // ═══ EFEITOS DE TELA DURANTE COLAPSO ═══
+        if (this.isCollapsing) {
+            this.renderCollapseEffects(renderer);
+        }
+        
+        // NOTA: Glow/Auréola circular REMOVIDO - visual mais limpo!
+        // O brilho agora vem apenas da borda neon do corpo
         
         // 2. Partículas de Ápice (se no estado máximo)
-        if (mods.isApex) {
+        if (mods.isApex && !this.isCollapsing) {
             this.drawApexParticles(renderer);
         }
         
-        // 2. Corpo
-        this.drawBody(renderer, breathOffset, scaleX, scaleY);
+        // 2. Corpo (com jitter aplicado)
+        const offsetX = jitterX;
+        const offsetY = jitterY + breathOffset;
+        this.drawBodyWithGlitch(renderer, offsetX, offsetY, scaleX, scaleY, glitchFactor);
         
         // 3. Face (olhos, boca, sobrancelhas)
-        this.drawFace(renderer, breathOffset, scaleX, scaleY);
+        this.drawFace(renderer, breathOffset + jitterY, scaleX, scaleY);
+        
+        // 4. Partículas de colapso (por cima de tudo)
+        if (this.collapseParticles.length > 0) {
+            this.renderCollapseParticles(renderer);
+        }
+        
+        // Limpa referências temporárias
+        this._currentGlitchFactor = 0;
+        this._currentJitter = null;
+        this._currentRenderer = null;
+    }
+    
+    /**
+     * Renderiza efeitos de tela durante colapso (scanlines, distorção)
+     */
+    renderCollapseEffects(renderer) {
+        const progress = this.collapseProgress;
+        const ctx = renderer.ctx;
+        
+        // Scanlines de erro
+        if (progress > 0.2) {
+            const numScanlines = Math.floor(progress * 20);
+            for (let i = 0; i < numScanlines; i++) {
+                const y = Math.random() * renderer.height;
+                const width = 50 + Math.random() * 150;
+                const x = this.x - width / 2 + (Math.random() - 0.5) * 100;
+                
+                // Cor de erro/estática
+                const gray = Math.floor(100 + Math.random() * 100);
+                const alpha = 0.1 + progress * 0.3;
+                
+                ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${alpha})`;
+                ctx.fillRect(x, y, width, 2);
+            }
+        }
+        
+        // Blocos de corrupção
+        if (progress > 0.4) {
+            const numBlocks = Math.floor(progress * 10);
+            for (let i = 0; i < numBlocks; i++) {
+                const size = 5 + Math.random() * 15;
+                const bx = this.x + (Math.random() - 0.5) * this.size * 3;
+                const by = this.y + (Math.random() - 0.5) * this.size * 3;
+                
+                const r = Math.random() > 0.5 ? 255 : 0;
+                const g = Math.random() > 0.7 ? 255 : 0;
+                const b = Math.random() > 0.3 ? 255 : 100;
+                const alpha = 0.2 + Math.random() * 0.3;
+                
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                ctx.fillRect(bx, by, size, size);
+            }
+        }
+    }
+    
+    /**
+     * Renderiza corpo com efeitos de glitch
+     */
+    drawBodyWithGlitch(renderer, offsetX, offsetY, scaleX, scaleY, glitchFactor) {
+        const shape = SHAPES_MAP[this.shapeId];
+        if (!shape) return;
+        
+        const params = shape.getParams(this.size * this.scale);
+        const cx = this.x + offsetX;
+        const cy = this.y + offsetY;
+        
+        // Atualiza o tempo do MaterialRenderer
+        materialRenderer.update(16);
+        
+        if (params.type === 'circle') {
+            const rx = params.radius * scaleX / this.scale;
+            const ry = params.radius * scaleY / this.scale;
+            
+            // Gera pontos do círculo com jitter
+            const circlePoints = this.generateCirclePointsWithGlitch(cx, cy, rx, ry, 32, glitchFactor);
+            
+            // Preenche com efeito de scanline skip
+            this.fillWithGlitch(renderer, cx, cy, circlePoints, glitchFactor);
+            
+            // Borda com material
+            if (this.borderColor) {
+                this.drawCustomNeonBorder(renderer, circlePoints);
+            } else {
+                materialRenderer.stroke(renderer, circlePoints, this.materialId);
+            }
+            
+        } else if (params.type === 'polygon') {
+            // Transforma vértices com jitter
+            const transformed = params.vertices.map(v => {
+                const jitter = glitchFactor > 0.1 ? this.getVertexJitter() : { x: 0, y: 0 };
+                return {
+                    x: cx + v.x * scaleX / this.scale + jitter.x,
+                    y: cy + v.y * scaleY / this.scale + jitter.y
+                };
+            });
+            
+            // Preenche com efeito de scanline skip
+            this.fillWithGlitch(renderer, cx, cy, transformed, glitchFactor);
+            
+            // Borda com material
+            if (this.borderColor) {
+                this.drawCustomNeonBorder(renderer, transformed);
+            } else {
+                materialRenderer.stroke(renderer, transformed, this.materialId);
+            }
+        }
+    }
+    
+    /**
+     * Gera pontos de círculo com jitter de glitch
+     */
+    generateCirclePointsWithGlitch(cx, cy, rx, ry, segments, glitchFactor) {
+        const points = [];
+        for (let i = 0; i < segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            const jitter = glitchFactor > 0.1 ? this.getVertexJitter() : { x: 0, y: 0 };
+            points.push({
+                x: cx + Math.cos(angle) * rx + jitter.x,
+                y: cy + Math.sin(angle) * ry + jitter.y
+            });
+        }
+        return points;
+    }
+    
+    /**
+     * Preenche polígono com efeitos de glitch (scanline skip, corrupção de cor)
+     */
+    fillWithGlitch(renderer, cx, cy, points, glitchFactor) {
+        if (glitchFactor < 0.1) {
+            // Sem glitch, usa preenchimento normal
+            materialRenderer.fill(renderer, cx, cy, points, this.materialId);
+            return;
+        }
+        
+        // Encontra bounds do polígono
+        let minY = Infinity, maxY = -Infinity;
+        points.forEach(p => {
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y);
+        });
+        
+        minY = Math.ceil(minY);
+        maxY = Math.floor(maxY);
+        
+        // Preenche scanline por scanline com efeitos
+        const material = getMaterialById(this.materialId);
+        const baseColor = material ? material.palette.core : this.secondaryColor;
+        const glowColor = material ? material.palette.glow : this.primaryColor;
+        
+        for (let y = minY; y <= maxY; y++) {
+            // ═══ FALHA DE SCANLINE ═══
+            if (this.shouldSkipScanline(y)) {
+                continue; // Pula esta linha = efeito de corpo fragmentado
+            }
+            
+            // Encontra interseções
+            const intersections = [];
+            for (let i = 0; i < points.length; i++) {
+                const p1 = points[i];
+                const p2 = points[(i + 1) % points.length];
+                
+                if ((p1.y <= y && p2.y > y) || (p2.y <= y && p1.y > y)) {
+                    const x = p1.x + (y - p1.y) / (p2.y - p1.y) * (p2.x - p1.x);
+                    intersections.push(x);
+                }
+            }
+            
+            intersections.sort((a, b) => a - b);
+            
+            // Preenche entre pares de interseções
+            for (let i = 0; i < intersections.length - 1; i += 2) {
+                const xStart = Math.ceil(intersections[i]);
+                const xEnd = Math.floor(intersections[i + 1]);
+                
+                for (let x = xStart; x <= xEnd; x++) {
+                    // ═══ CORRUPÇÃO DE COR ═══
+                    const t = (y - minY) / (maxY - minY);
+                    const originalColor = t < 0.5 ? baseColor : glowColor;
+                    const color = this.getCorruptedColor(originalColor, renderer);
+                    const alpha = this.getCorruptedAlpha(220);
+                    
+                    const { r, g, b } = renderer.hexToRgb(color);
+                    renderer.setPixel(x, y, r, g, b, alpha);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Renderiza partículas de dissolução (colapso)
+     */
+    renderCollapseParticles(renderer) {
+        for (const p of this.collapseParticles) {
+            const alpha = Math.floor(255 * p.life);
+            
+            if (p.isStatic) {
+                // Partícula de estática (ruído cinza)
+                const gray = Math.floor(100 + Math.random() * 155);
+                renderer.setPixel(p.x, p.y, gray, gray, gray, alpha);
+                if (p.size > 1) {
+                    renderer.setPixel(p.x + 1, p.y, gray, gray, gray, alpha * 0.7);
+                    renderer.setPixel(p.x, p.y + 1, gray, gray, gray, alpha * 0.7);
+                }
+            } else {
+                // Partícula colorida (fragmento do pet)
+                const { r, g, b } = renderer.hexToRgb(p.color);
+                
+                // Desenha partícula com glow
+                for (let dx = -p.size; dx <= p.size; dx++) {
+                    for (let dy = -p.size; dy <= p.size; dy++) {
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist <= p.size) {
+                            const fade = 1 - dist / p.size;
+                            renderer.setPixelBlend(
+                                p.x + dx, 
+                                p.y + dy, 
+                                r, g, b, 
+                                Math.floor(alpha * fade)
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
     
     /**
@@ -930,11 +1515,8 @@ export default class GeoPet {
         const params = shape.getParams(this.size * this.scale);
         const cy = this.y + breathOffset;
         
-        // Renderiza glow com alpha baseado no progresso
-        const glowAlpha = matSystem.progress;
-        if (glowAlpha > 0.1) {
-            this.drawGlowWithAlpha(renderer, glowAlpha);
-        }
+        // Glow removido para visual mais limpo
+        // O brilho vem da borda neon durante materialização
         
         // Renderiza corpo pixel a pixel baseado na máscara
         if (params.type === 'circle') {

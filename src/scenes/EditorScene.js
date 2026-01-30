@@ -651,8 +651,6 @@ export default class EditorScene {
             this.renderer.drawLine(0, y, this.canvas.width, y, gridColor);
         }
         
-        // Círculo decorativo central
-        this.renderer.drawCircle(this.canvas.width / 2, this.canvas.height / 2, 100, '#1f1f3a');
-        this.renderer.drawCircle(this.canvas.width / 2, this.canvas.height / 2, 120, '#15152a');
+        // Círculos decorativos removidos para visual mais limpo
     }
 }

@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════
 // HOME SCENE - Quarto do GeoPet
 // Movimento básico + interação (alimentar) + sistema de falas
+// Com minimapa simples no canto superior direito
 // ═══════════════════════════════════════════════════════════════════
 
 import Renderer from '../core/Renderer.js';
@@ -38,13 +39,20 @@ export default class HomeScene {
         this.backgroundImage = null;
         this.backgroundLoaded = false;
         
-        // Room bounds - será calculado dinamicamente
+        // Room bounds - será calculado dinamicamente baseado no canvas
         this.roomBounds = {
             x: 0,
             y: 0,
             width: 800,
             height: 600
         };
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // MINIMAPA - Canvas separado em escala reduzida
+        // ═══════════════════════════════════════════════════════════════════
+        this.minimapCanvas = null;
+        this.minimapCtx = null;
+        this.minimapScale = 0.15; // 15% do tamanho original
         
         // Food
         this.food = null;
@@ -57,6 +65,14 @@ export default class HomeScene {
         // Wandering
         this.wanderTimer = 0;
         this.wanderInterval = 3000;
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE COLAPSO / GAME OVER
+        // ═══════════════════════════════════════════════════════════════════
+        this.isGameOver = false;
+        this.gameOverProgress = 0;
+        this.lastCollapseDialogueTime = 0;
+        this.collapseDialogueInterval = 1500; // Falas mais rápidas durante colapso
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -66,6 +82,7 @@ export default class HomeScene {
     init(petData) {
         this.petData = petData;
         this.createCanvas();
+        this.createMinimap();
         this.createUI();
         this.createPet();
         this.setupDialogueSystem();
@@ -125,6 +142,11 @@ export default class HomeScene {
             window.removeEventListener('resize', this.resizeHandler);
         }
         
+        // Remove minimapa
+        if (this.minimapCanvas) {
+            this.minimapCanvas.remove();
+        }
+        
         // Remove UI
         const uiContainer = document.getElementById('home-ui');
         if (uiContainer) uiContainer.remove();
@@ -167,57 +189,199 @@ export default class HomeScene {
         this.canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
         
         // Resize listener
-        this.resizeHandler = () => this.updateCanvasSize();
+        this.resizeHandler = () => {
+            this.updateCanvasSize();
+            this.updateMinimapSize();
+        };
         window.addEventListener('resize', this.resizeHandler);
     }
     
     /**
-     * Atualiza tamanho do canvas de forma responsiva
-     * Canvas expansivo que prioriza a visualização do pet
+     * Cria o minimapa - um canvas menor no canto superior direito
+     * Clicável para teleportar o pet
      */
-    updateCanvasSize() {
+    createMinimap() {
+        const container = document.getElementById('game-container');
+        
+        this.minimapCanvas = document.createElement('canvas');
+        this.minimapCanvas.id = 'minimap-canvas';
+        this.minimapCanvas.className = 'minimap';
+        
+        // Estilo do minimapa
+        Object.assign(this.minimapCanvas.style, {
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            borderRadius: '8px',
+            border: '2px solid rgba(0, 255, 255, 0.6)',
+            boxShadow: '0 0 15px rgba(0, 255, 255, 0.3), inset 0 0 10px rgba(0, 0, 0, 0.5)',
+            zIndex: '50',
+            pointerEvents: 'auto', // HABILITADO para cliques
+            opacity: '0.9',
+            cursor: 'pointer'
+        });
+        
+        container.appendChild(this.minimapCanvas);
+        this.minimapCtx = this.minimapCanvas.getContext('2d');
+        
+        // Eventos de click no minimapa para teleportar o pet
+        this.minimapCanvas.addEventListener('click', (e) => this.onMinimapClick(e));
+        this.minimapCanvas.addEventListener('touchstart', (e) => this.onMinimapTouch(e), { passive: false });
+        
+        this.updateMinimapSize();
+    }
+    
+    /**
+     * Atualiza tamanho do minimapa baseado no canvas principal
+     */
+    updateMinimapSize() {
+        if (!this.minimapCanvas) return;
+        
+        // Minimapa é 15% do tamanho lógico do canvas
+        const isMobile = window.innerWidth <= 800;
+        this.minimapScale = isMobile ? 0.12 : 0.15;
+        
+        // Usa dimensões lógicas para cálculo consistente
+        const logicalW = this.logicalWidth || this.canvas.width;
+        const logicalH = this.logicalHeight || this.canvas.height;
+        
+        this.minimapCanvas.width = Math.floor(logicalW * this.minimapScale);
+        this.minimapCanvas.height = Math.floor(logicalH * this.minimapScale);
+        
+        // Define tamanho CSS também para consistência
+        this.minimapCanvas.style.width = `${this.minimapCanvas.width}px`;
+        this.minimapCanvas.style.height = `${this.minimapCanvas.height}px`;
+        
+        // Ajusta posição em mobile
+        if (isMobile) {
+            this.minimapCanvas.style.top = '5px';
+            this.minimapCanvas.style.right = '5px';
+        } else {
+            this.minimapCanvas.style.top = '10px';
+            this.minimapCanvas.style.right = '10px';
+        }
+    }
+    
+    /**
+     * Handler de click no minimapa - teleporta o pet para a posição clicada
+     */
+    onMinimapClick(e) {
+        e.stopPropagation();
+        
+        const rect = this.minimapCanvas.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        
+        // Converte coordenadas do minimapa para coordenadas do jogo
+        const gameX = clickX / this.minimapScale;
+        const gameY = clickY / this.minimapScale;
+        
+        // Verifica se está dentro dos limites do quarto
+        if (this.isInsideRoom(gameX, gameY)) {
+            this.pet.moveTo(gameX, gameY);
+            this.showHint('🗺️ Teleportando para o ponto clicado!');
+            UISoundSystem.playClick('confirm');
+        }
+    }
+    
+    /**
+     * Handler de touch no minimapa - teleporta o pet para a posição tocada
+     */
+    onMinimapTouch(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const touch = e.touches[0];
+        const rect = this.minimapCanvas.getBoundingClientRect();
+        const touchX = touch.clientX - rect.left;
+        const touchY = touch.clientY - rect.top;
+        
+        // Converte coordenadas do minimapa para coordenadas do jogo
+        const gameX = touchX / this.minimapScale;
+        const gameY = touchY / this.minimapScale;
+        
+        // Verifica se está dentro dos limites do quarto
+        if (this.isInsideRoom(gameX, gameY)) {
+            this.pet.moveTo(gameX, gameY);
+            this.showHint('🗺️ Teleportando para o ponto tocado!');
+            UISoundSystem.playClick('confirm');
+        }
+    }
+    
+    /**
+     * Calcula tamanho do canvas (chamado na criação inicial)
+     */
+    calculateCanvasSize() {
         const isMobile = window.innerWidth <= 800;
         const isLandscape = window.innerWidth > window.innerHeight;
         
-        let maxWidth, maxHeight;
+        let width, height;
         
         if (isMobile) {
             if (isLandscape) {
-                // Mobile landscape: canvas à esquerda, UI à direita
-                maxWidth = window.innerWidth - 200;
-                maxHeight = window.innerHeight - 20;
+                const maxWidth = window.innerWidth - 200;
+                const maxHeight = window.innerHeight - 20;
+                const aspectRatio = 16 / 10;
+                if (maxWidth / maxHeight > aspectRatio) {
+                    height = maxHeight;
+                    width = height * aspectRatio;
+                } else {
+                    width = maxWidth;
+                    height = width / aspectRatio;
+                }
+                width = Math.max(360, Math.floor(width));
+                height = Math.max(225, Math.floor(height));
             } else {
-                // Mobile portrait: canvas em cima, UI embaixo
-                maxWidth = window.innerWidth - 20;
-                maxHeight = window.innerHeight * 0.55;
+                width = Math.floor(window.innerWidth - 10);
+                const uiHeightPercent = 0.44;
+                const availableHeight = window.innerHeight * (1 - uiHeightPercent) - 15;
+                height = Math.floor(availableHeight);
+                width = Math.max(320, width);
+                height = Math.max(280, height);
             }
         } else {
             // Desktop: canvas grande no centro, UI lateral
-            maxWidth = Math.min(window.innerWidth - 260, 1200);
-            maxHeight = Math.min(window.innerHeight - 60, 900);
+            const maxWidth = Math.min(window.innerWidth - 260, 1200);
+            const maxHeight = Math.min(window.innerHeight - 60, 900);
+            const aspectRatio = 16 / 10;
+            if (maxWidth / maxHeight > aspectRatio) {
+                height = maxHeight;
+                width = height * aspectRatio;
+            } else {
+                width = maxWidth;
+                height = width / aspectRatio;
+            }
+            width = Math.max(400, Math.floor(width));
+            height = Math.max(250, Math.floor(height));
         }
         
-        // Aspect ratio 16:10 (mais cinematográfico e amplo)
-        const aspectRatio = 16 / 10;
-        let width, height;
+        // Armazena dimensões lógicas
+        this.logicalWidth = width;
+        this.logicalHeight = height;
         
-        if (maxWidth / maxHeight > aspectRatio) {
-            height = maxHeight;
-            width = height * aspectRatio;
-        } else {
-            width = maxWidth;
-            height = width / aspectRatio;
-        }
-        
-        // Garante mínimos
-        width = Math.max(360, Math.floor(width));
-        height = Math.max(225, Math.floor(height));
-        
+        // Define tamanho do canvas
         this.canvas.width = width;
         this.canvas.height = height;
         
-        // Atualiza roomBounds para ocupar todo o canvas com margem
-        const margin = Math.min(width, height) * 0.05;
+        // Define CSS também para garantir consistência
+        this.canvas.style.width = `${width}px`;
+        this.canvas.style.height = `${height}px`;
+        
+        this.updateRoomBounds(width, height);
+    }
+    
+    /**
+     * Atualiza os limites do quarto baseado nas dimensões
+     */
+    updateRoomBounds(width, height) {
+        const isMobile = window.innerWidth <= 800;
+        const isLandscape = window.innerWidth > window.innerHeight;
+        
+        let margin = 0;
+        if (!isMobile || isLandscape) {
+            margin = Math.min(width, height) * 0.05;
+        }
+        
         this.roomBounds = {
             x: margin,
             y: margin,
@@ -227,12 +391,104 @@ export default class HomeScene {
         
         // Reposiciona pet se existir
         if (this.pet) {
-            // Mantém pet dentro dos novos bounds
-            this.pet.x = Math.max(this.roomBounds.x + this.pet.size, 
-                         Math.min(this.roomBounds.x + this.roomBounds.width - this.pet.size, this.pet.x));
-            this.pet.y = Math.max(this.roomBounds.y + this.pet.size, 
-                         Math.min(this.roomBounds.y + this.roomBounds.height - this.pet.size, this.pet.y));
+            const ageScale = this.pet.getAgeScale ? this.pet.getAgeScale() : 1;
+            const petRadius = this.pet.size * (this.pet.scale || 1) * ageScale * 0.8;
+            
+            this.pet.x = Math.max(
+                this.roomBounds.x + petRadius,
+                Math.min(this.roomBounds.x + this.roomBounds.width - petRadius, this.pet.x)
+            );
+            
+            this.pet.y = Math.max(
+                this.roomBounds.y + petRadius,
+                Math.min(this.roomBounds.y + this.roomBounds.height - petRadius, this.pet.y)
+            );
         }
+    }
+    
+    /**
+     * Atualiza tamanho do canvas de forma responsiva (chamado no resize)
+     * Canvas expansivo que prioriza a visualização do pet
+     */
+    updateCanvasSize() {
+        const isMobile = window.innerWidth <= 800;
+        const isLandscape = window.innerWidth > window.innerHeight;
+        
+        let width, height;
+        
+        if (isMobile) {
+            if (isLandscape) {
+                // Mobile landscape: canvas à esquerda, UI à direita (similar a desktop)
+                const maxWidth = window.innerWidth - 200;
+                const maxHeight = window.innerHeight - 20;
+                
+                // Mantém aspect ratio 16:10 no landscape
+                const aspectRatio = 16 / 10;
+                if (maxWidth / maxHeight > aspectRatio) {
+                    height = maxHeight;
+                    width = height * aspectRatio;
+                } else {
+                    width = maxWidth;
+                    height = width / aspectRatio;
+                }
+                
+                width = Math.max(360, Math.floor(width));
+                height = Math.max(225, Math.floor(height));
+            } else {
+                // Mobile portrait: PREENCHE TODA A ÁREA DISPONÍVEL (sem aspect ratio fixo)
+                // Usa toda a largura menos margens mínimas
+                width = Math.floor(window.innerWidth - 10);
+                
+                // Calcula altura disponível: total menos UI embaixo
+                // UI ocupa ~44vh, deixamos espaço seguro
+                const uiHeightPercent = 0.44;
+                const availableHeight = window.innerHeight * (1 - uiHeightPercent) - 15;
+                height = Math.floor(availableHeight);
+                
+                // Garante mínimos razoáveis
+                width = Math.max(320, width);
+                height = Math.max(280, height);
+            }
+        } else {
+            // Desktop: canvas grande no centro, UI lateral
+            const maxWidth = Math.min(window.innerWidth - 260, 1200);
+            const maxHeight = Math.min(window.innerHeight - 60, 900);
+            
+            // Aspect ratio 16:10 no desktop
+            const aspectRatio = 16 / 10;
+            if (maxWidth / maxHeight > aspectRatio) {
+                height = maxHeight;
+                width = height * aspectRatio;
+            } else {
+                width = maxWidth;
+                height = width / aspectRatio;
+            }
+            
+            width = Math.max(400, Math.floor(width));
+            height = Math.max(250, Math.floor(height));
+        }
+        
+        // Atualiza dimensões lógicas
+        this.logicalWidth = width;
+        this.logicalHeight = height;
+        
+        // Atualiza canvas
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.canvas.style.width = `${width}px`;
+        this.canvas.style.height = `${height}px`;
+        
+        // Recria o renderer com novas dimensões
+        if (this.renderer) {
+            this.renderer = new Renderer(this.canvas, {
+                useDPR: false,
+                width: width,
+                height: height
+            });
+        }
+        
+        // Atualiza roomBounds usando método compartilhado
+        this.updateRoomBounds(width, height);
     }
     
     /**
@@ -398,15 +654,14 @@ export default class HomeScene {
     // ═══════════════════════════════════════════════════════════════════
     
     createPet() {
-        // Escala do pet baseada no tamanho do canvas
-        const baseSize = Math.min(this.canvas.width, this.canvas.height) * 0.08;
-        const petSize = Math.max(35, Math.min(50, baseSize));
+        // Tamanho base do pet - será escalado pela idade
+        const baseSize = 50; // Tamanho base fixo, a escala de idade cuida do resto
         
         this.pet = new GeoPet({
             ...this.petData,
             x: this.roomBounds.x + this.roomBounds.width / 2,
             y: this.roomBounds.y + this.roomBounds.height / 2,
-            size: petSize,
+            size: baseSize,
             scale: 1
         });
         
@@ -431,6 +686,427 @@ export default class HomeScene {
         this.pet.onReachAdulthood = () => {
             this.triggerEfflorescence();
         };
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SETUP: Callbacks de Colapso/Morte
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // Callback quando inicia o colapso
+        this.pet.onCollapseStart = () => {
+            this.onCollapseStart();
+        };
+        
+        // Callback de progresso do colapso
+        this.pet.onCollapseProgress = (stage, progress) => {
+            this.onCollapseProgress(stage, progress);
+        };
+        
+        // Callback de morte completa
+        this.pet.onDeath = () => {
+            this.onPetDeath();
+        };
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // SISTEMA DE COLAPSO / MORTE
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Chamado quando o colapso sistêmico inicia
+     */
+    onCollapseStart() {
+        console.log('💀 COLAPSO INICIADO - Pet está morrendo...');
+        
+        // Som de erro/glitch
+        UISoundSystem.playShock();
+        
+        // Primeira fala de colapso
+        const dialogue = DialogueSystem.speak('collapse_stage1', 'dying', this.pet.shapeId);
+        this.pet.say(dialogue, 'collapse');
+        this.lastCollapseDialogueTime = Date.now();
+        
+        // Vibração do dispositivo se disponível
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100, 50, 200]);
+        }
+        
+        // Esconde botões de interação
+        const actionsContainer = document.querySelector('.home-actions');
+        const chaosContainer = document.querySelector('.home-actions-chaos');
+        if (actionsContainer) actionsContainer.style.opacity = '0.3';
+        if (chaosContainer) chaosContainer.style.opacity = '0.3';
+    }
+    
+    /**
+     * Chamado a cada mudança de estágio do colapso
+     */
+    onCollapseProgress(stage, progress) {
+        console.log(`☠️ Colapso estágio ${stage} - ${Math.floor(progress * 100)}%`);
+        
+        // Fala de quarta parede baseada no estágio
+        const now = Date.now();
+        if (now - this.lastCollapseDialogueTime > this.collapseDialogueInterval) {
+            let context;
+            if (stage <= 1) context = 'collapse_stage1';
+            else if (stage <= 2) context = 'collapse_stage2';
+            else if (stage <= 3) context = 'collapse_stage3';
+            else context = 'collapse_final';
+            
+            const dialogue = DialogueSystem.speak(context, 'dying', this.pet.shapeId);
+            this.pet.say(dialogue, 'collapse');
+            this.lastCollapseDialogueTime = now;
+            
+            // Som de estática
+            if (stage >= 2) {
+                PetVoiceSystem.emote('dying', this.pet.shapeId);
+            }
+        }
+        
+        // Efeito de tela (shake)
+        if (stage >= 2) {
+            this.addScreenEffect('collapse');
+        }
+    }
+    
+    /**
+     * Chamado quando o pet morre completamente
+     */
+    onPetDeath() {
+        console.log('☠️ GAME OVER - Pet morreu');
+        
+        this.isGameOver = true;
+        
+        // Para o decay de fome
+        if (this.hungerDecayInterval) {
+            clearInterval(this.hungerDecayInterval);
+        }
+        
+        // Som final
+        UISoundSystem.playMutate();
+        
+        // Mostra tela de Game Over após um breve delay
+        setTimeout(() => {
+            this.showGameOverScreen();
+        }, 1500);
+    }
+    
+    /**
+     * Mostra a tela de Game Over com estilo neon/cyber
+     */
+    showGameOverScreen() {
+        // Remove UI existente
+        const homeUI = document.getElementById('home-ui');
+        if (homeUI) homeUI.style.display = 'none';
+        
+        // Cria overlay de game over
+        const gameOverOverlay = document.createElement('div');
+        gameOverOverlay.id = 'game-over-overlay';
+        gameOverOverlay.className = 'game-over-overlay';
+        gameOverOverlay.innerHTML = `
+            <div class="game-over-content">
+                <div class="game-over-glitch-container">
+                    <h1 class="game-over-title" data-text="COLAPSO SISTÊMICO">GAME OVER!</h1>
+                </div>
+                
+                <div class="game-over-message">
+                    <p class="game-over-subtitle">memória liberada</p>
+                    <p class="game-over-code">// seu GeoPet retornou ao vácuo digital</p>
+                    <p class="game-over-code">// os dados foram fragmentados</p>
+                    <p class="game-over-code">// return undefined;</p>
+                </div>
+                
+                <div class="game-over-stats">
+                    <span>idade alcançada: <strong>${this.pet.getAgeStageLabel()}</strong></span>
+                    <span>personalidade: <strong>${this.pet.getPersonalityLabel()}</strong></span>
+                </div>
+                
+                <div class="game-over-buttons">
+                    <button id="new-pet-btn" class="game-over-btn primary">
+                        <span class="btn-icon"></span>
+                        <span class="btn-text">Novo GeoPet</span>
+                    </button>
+                    <button id="exit-btn" class="game-over-btn secondary">
+                        <span class="btn-icon">🚪</span>
+                        <span class="btn-text">Sair</span>
+                    </button>
+                </div>
+                
+                <div class="game-over-static"></div>
+            </div>
+        `;
+        
+        document.getElementById('game-container').appendChild(gameOverOverlay);
+        
+        // Eventos dos botões
+        document.getElementById('new-pet-btn').addEventListener('click', () => {
+            UISoundSystem.playClick('confirm');
+            this.startNewGame();
+        });
+        
+        document.getElementById('exit-btn').addEventListener('click', () => {
+            UISoundSystem.playClose();
+            this.exitGame();
+        });
+        
+        // Animação de entrada
+        setTimeout(() => {
+            gameOverOverlay.classList.add('visible');
+        }, 100);
+        
+        // Adiciona estilos de Game Over
+        this.injectGameOverStyles();
+    }
+    
+    /**
+     * Injeta estilos CSS para tela de Game Over
+     */
+    injectGameOverStyles() {
+        if (document.getElementById('game-over-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'game-over-styles';
+        style.textContent = `
+            .game-over-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(135deg, #0a0a12 0%, #1a0a1a 50%, #0a0a12 100%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+                opacity: 0;
+                transition: opacity 1s ease;
+            }
+            
+            .game-over-overlay.visible {
+                opacity: 1;
+            }
+            
+            .game-over-content {
+                text-align: center;
+                padding: 40px;
+                position: relative;
+            }
+            
+            .game-over-glitch-container {
+                position: relative;
+                margin-bottom: 30px;
+            }
+            
+            .game-over-title {
+                font-family: 'Courier New', monospace;
+                font-size: clamp(1.5rem, 5vw, 3rem);
+                color: #ff0066;
+                text-shadow: 
+                    0 0 10px #ff0066,
+                    0 0 20px #ff0066,
+                    0 0 40px #ff0066,
+                    2px 2px 0 #00ffff,
+                    -2px -2px 0 #00ffff;
+                letter-spacing: 4px;
+                animation: glitch-text 2s infinite;
+                position: relative;
+            }
+            
+            .game-over-title::before,
+            .game-over-title::after {
+                content: attr(data-text);
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+            }
+            
+            .game-over-title::before {
+                animation: glitch-1 0.3s infinite;
+                color: #00ffff;
+                z-index: -1;
+            }
+            
+            .game-over-title::after {
+                animation: glitch-2 0.3s infinite;
+                color: #ff0066;
+                z-index: -2;
+            }
+            
+            @keyframes glitch-text {
+                0%, 100% { transform: translate(0); }
+                20% { transform: translate(-2px, 2px); }
+                40% { transform: translate(-2px, -2px); }
+                60% { transform: translate(2px, 2px); }
+                80% { transform: translate(2px, -2px); }
+            }
+            
+            @keyframes glitch-1 {
+                0%, 100% { clip-path: inset(0 0 0 0); transform: translate(0); }
+                20% { clip-path: inset(20% 0 60% 0); transform: translate(-5px); }
+                40% { clip-path: inset(40% 0 40% 0); transform: translate(5px); }
+                60% { clip-path: inset(60% 0 20% 0); transform: translate(-5px); }
+                80% { clip-path: inset(80% 0 0% 0); transform: translate(5px); }
+            }
+            
+            @keyframes glitch-2 {
+                0%, 100% { clip-path: inset(0 0 0 0); transform: translate(0); }
+                20% { clip-path: inset(80% 0 0% 0); transform: translate(5px); }
+                40% { clip-path: inset(60% 0 20% 0); transform: translate(-5px); }
+                60% { clip-path: inset(40% 0 40% 0); transform: translate(5px); }
+                80% { clip-path: inset(20% 0 60% 0); transform: translate(-5px); }
+            }
+            
+            .game-over-message {
+                margin-bottom: 30px;
+            }
+            
+            .game-over-subtitle {
+                font-size: 1.2rem;
+                color: #888;
+                margin-bottom: 15px;
+                font-style: italic;
+            }
+            
+            .game-over-code {
+                font-family: 'Courier New', monospace;
+                font-size: 0.9rem;
+                color: #555;
+                margin: 5px 0;
+            }
+            
+            .game-over-stats {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-bottom: 40px;
+                color: #00ffff;
+                font-size: 0.9rem;
+            }
+            
+            .game-over-stats strong {
+                color: #fff;
+            }
+            
+            .game-over-buttons {
+                display: flex;
+                gap: 20px;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .game-over-btn {
+                padding: 15px 30px;
+                font-size: 1rem;
+                font-family: 'Courier New', monospace;
+                border: 2px solid;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }
+            
+            .game-over-btn.primary {
+                background: linear-gradient(135deg, #00ffff22, #00ffff11);
+                border-color: #00ffff;
+                color: #00ffff;
+                box-shadow: 0 0 20px #00ffff33, inset 0 0 20px #00ffff11;
+            }
+            
+            .game-over-btn.primary:hover {
+                background: linear-gradient(135deg, #00ffff44, #00ffff22);
+                box-shadow: 0 0 30px #00ffff66, inset 0 0 30px #00ffff22;
+                transform: scale(1.05);
+            }
+            
+            .game-over-btn.secondary {
+                background: linear-gradient(135deg, #ff006622, #ff006611);
+                border-color: #ff0066;
+                color: #ff0066;
+                box-shadow: 0 0 20px #ff006633, inset 0 0 20px #ff006611;
+            }
+            
+            .game-over-btn.secondary:hover {
+                background: linear-gradient(135deg, #ff006644, #ff006622);
+                box-shadow: 0 0 30px #ff006666, inset 0 0 30px #ff006622;
+                transform: scale(1.05);
+            }
+            
+            .btn-icon {
+                font-size: 1.2rem;
+            }
+            
+            .game-over-static {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                background: repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(255, 255, 255, 0.03) 2px,
+                    rgba(255, 255, 255, 0.03) 4px
+                );
+                animation: static-noise 0.1s infinite;
+                z-index: -1;
+            }
+            
+            @keyframes static-noise {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.8; }
+            }
+            
+            /* Efeito de colapso na tela durante a morte */
+            .effect-collapse {
+                animation: screen-shake 0.5s ease;
+            }
+            
+            @keyframes screen-shake {
+                0%, 100% { transform: translate(0); filter: none; }
+                10% { transform: translate(-5px, 3px); }
+                20% { transform: translate(5px, -3px); filter: hue-rotate(20deg); }
+                30% { transform: translate(-3px, 5px); }
+                40% { transform: translate(3px, -5px); filter: hue-rotate(-20deg); }
+                50% { transform: translate(-5px, -3px); }
+                60% { transform: translate(5px, 3px); filter: saturate(0.5); }
+                70% { transform: translate(-3px, -5px); }
+                80% { transform: translate(3px, 5px); filter: hue-rotate(10deg); }
+                90% { transform: translate(-5px, 3px); }
+            }
+        `;
+        
+        document.head.appendChild(style);
+    }
+    
+    /**
+     * Inicia um novo jogo (volta ao editor)
+     */
+    startNewGame() {
+        // Remove overlay de game over
+        const overlay = document.getElementById('game-over-overlay');
+        if (overlay) overlay.remove();
+        
+        // Volta ao editor para criar novo pet
+        this.game.changeScene('editor', null);
+    }
+    
+    /**
+     * Sai do jogo (volta à tela inicial ou fecha)
+     */
+    exitGame() {
+        // Remove overlay de game over
+        const overlay = document.getElementById('game-over-overlay');
+        if (overlay) overlay.remove();
+        
+        // Tenta voltar ao editor como fallback
+        this.game.changeScene('editor', null);
     }
     
     /**
@@ -449,24 +1125,6 @@ export default class HomeScene {
         
         // Efeito de materialização celebrativo
         this.materializationSystem.start(this.pet, this.renderer, 'spiral');
-        
-        // Efeitos visuais extras via PetEffectsSystem
-        if (this.effectsSystem) {
-            // Adiciona partículas douradas
-            for (let i = 0; i < 20; i++) {
-                setTimeout(() => {
-                    this.effectsSystem.addParticle({
-                        x: this.pet.x + (Math.random() - 0.5) * 60,
-                        y: this.pet.y + (Math.random() - 0.5) * 60,
-                        vx: (Math.random() - 0.5) * 3,
-                        vy: -Math.random() * 4 - 2,
-                        color: `hsl(${45 + Math.random() * 20}, 100%, ${60 + Math.random() * 30}%)`,
-                        life: 120 + Math.random() * 60,
-                        size: 2 + Math.random() * 3
-                    });
-                }, i * 50);
-            }
-        }
         
         // Squash & Stretch celebrativo
         this.pet.squash(0.6, 1.6);
@@ -708,7 +1366,8 @@ export default class HomeScene {
             shock: 2000,
             freeze: 4000,
             mutate: 3000,
-            heal: 1000
+            heal: 1000,
+            collapse: 500
         };
         
         setTimeout(() => {
@@ -906,6 +1565,11 @@ export default class HomeScene {
     }
     
     update(deltaTime) {
+        // Se o jogo acabou, não atualiza mais nada
+        if (this.isGameOver) {
+            return;
+        }
+        
         // Atualiza sistema de materialização
         if (this.materializationSystem.isActive) {
             this.materializationSystem.update(deltaTime);
@@ -917,6 +1581,9 @@ export default class HomeScene {
         
         // Atualiza display de humor
         this.updateMoodDisplay();
+        
+        // Atualiza info de idade periodicamente
+        this.updatePetInfo();
         
         // Constrain pet to room
         this.constrainPetToRoom();
@@ -952,12 +1619,39 @@ export default class HomeScene {
         }
     }
     
+    /**
+     * Mantém o pet dentro dos limites do quarto (correção de viewport)
+     */
     constrainPetToRoom() {
-        const b = this.roomBounds;
-        const margin = this.pet.size;
+        if (!this.pet || !this.roomBounds) return;
         
-        this.pet.x = Math.max(b.x + margin, Math.min(b.x + b.width - margin, this.pet.x));
-        this.pet.y = Math.max(b.y + margin, Math.min(b.y + b.height - margin, this.pet.y));
+        const b = this.roomBounds;
+        // Considera o raio do pet + escala de idade para cálculo preciso
+        const ageScale = this.pet.getAgeScale ? this.pet.getAgeScale() : 1.0;
+        const petRadius = this.pet.size * (this.pet.scale || 1) * ageScale * 0.65;
+        
+        // Clamp rigoroso: pet NUNCA sai da área visível
+        const minX = b.x + petRadius;
+        const maxX = b.x + b.width - petRadius;
+        const minY = b.y + petRadius;
+        const maxY = b.y + b.height - petRadius;
+        
+        // Aplica limites com correção de velocidade se necessário
+        if (this.pet.x < minX) {
+            this.pet.x = minX;
+            this.pet.vx = Math.abs(this.pet.vx || 0); // Rebate
+        } else if (this.pet.x > maxX) {
+            this.pet.x = maxX;
+            this.pet.vx = -Math.abs(this.pet.vx || 0);
+        }
+        
+        if (this.pet.y < minY) {
+            this.pet.y = minY;
+            this.pet.vy = Math.abs(this.pet.vy || 0);
+        } else if (this.pet.y > maxY) {
+            this.pet.y = maxY;
+            this.pet.vy = -Math.abs(this.pet.vy || 0);
+        }
     }
     
     checkFoodCollision() {
@@ -1060,8 +1754,59 @@ export default class HomeScene {
         // 4. Aplica o buffer sobre o background (com composição alpha)
         this.renderer.flushWithAlpha();
         
+        // 5. Renderiza MINIMAPA - copia do canvas principal em escala reduzida
+        this.renderMinimap();
+        
         // Draw dialogue bubble (usando HTML overlay)
         this.updateDialogueBubble();
+    }
+    
+    /**
+     * Renderiza o minimapa - simplesmente copia o canvas principal escalado
+     * Com indicador de posição do pet
+     */
+    renderMinimap() {
+        if (!this.minimapCanvas || !this.minimapCtx) return;
+        
+        const ctx = this.minimapCtx;
+        
+        // Limpa o minimapa
+        ctx.clearRect(0, 0, this.minimapCanvas.width, this.minimapCanvas.height);
+        
+        // Copia o canvas principal para o minimapa em escala reduzida
+        ctx.drawImage(
+            this.canvas,
+            0, 0, this.canvas.width, this.canvas.height,
+            0, 0, this.minimapCanvas.width, this.minimapCanvas.height
+        );
+        
+        // Overlay escuro sutil para diferenciar do canvas principal
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.fillRect(0, 0, this.minimapCanvas.width, this.minimapCanvas.height);
+        
+        // Desenha indicador de posição do pet (círculo pulsante)
+        if (this.pet) {
+            const petMinimapX = this.pet.x * this.minimapScale;
+            const petMinimapY = this.pet.y * this.minimapScale;
+            const pulseSize = 3 + Math.sin(Date.now() / 200) * 1;
+            
+            // Glow externo
+            ctx.beginPath();
+            ctx.arc(petMinimapX, petMinimapY, pulseSize + 2, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+            ctx.fill();
+            
+            // Círculo principal
+            ctx.beginPath();
+            ctx.arc(petMinimapX, petMinimapY, pulseSize, 0, Math.PI * 2);
+            ctx.fillStyle = '#00ffff';
+            ctx.fill();
+        }
+        
+        // Borda interna brilhante
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(1, 1, this.minimapCanvas.width - 2, this.minimapCanvas.height - 2);
     }
     
     /**
@@ -1132,102 +1877,6 @@ export default class HomeScene {
         }
     }
     
-    /**
-     * Renderiza efeitos visuais especiais no pet
-     */
-    renderPetEffects() {
-        // Efeito de congelamento
-        if (this.effectsSystem.isFrozen()) {
-            const progress = this.effectsSystem.getFreezeProgress();
-            const tremble = this.effectsSystem.getFreezeTremble();
-            
-            // Aplica tremor ao pet
-            this.pet.x += tremble.x;
-            this.pet.y += tremble.y;
-            
-            // Renderiza cristais de gelo ao redor
-            this.drawFreezeEffect(progress);
-        }
-        
-        // Efeito de mutação
-        if (this.effectsSystem.isMutating()) {
-            const data = this.effectsSystem.getMutationData();
-            if (data) {
-                this.drawMutationEffect(data);
-            }
-        }
-        
-        // Efeito de cócegas
-        if (this.effectsSystem.isTickled()) {
-            const visuals = this.effectsSystem.getTickleVisuals();
-            if (visuals) {
-                // Aplica squash/stretch de risada
-                this.pet.squashX = visuals.squash.x;
-                this.pet.squashY = visuals.squash.y;
-                
-                // Aplica bounce
-                this.pet.y -= visuals.bounce;
-            }
-        }
-    }
-    
-    /**
-     * Desenha efeito de congelamento
-     */
-    drawFreezeEffect(progress) {
-        const cx = this.pet.x;
-        const cy = this.pet.y;
-        const radius = this.pet.size * 1.5;
-        
-        // Aura gelada
-        const iceColor = { r: 100, g: 200, b: 255 };
-        const alpha = Math.floor(100 * (1 - progress));
-        
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2 + Date.now() * 0.001;
-            const dist = radius * (0.8 + Math.sin(Date.now() * 0.002 + i) * 0.2);
-            const x = cx + Math.cos(angle) * dist;
-            const y = cy + Math.sin(angle) * dist;
-            
-            // Cristal de gelo (pequeno triângulo/losango)
-            const size = 3 + Math.random() * 3;
-            this.renderer.setPixelBlend(x, y, iceColor.r, iceColor.g, iceColor.b, alpha);
-            this.renderer.setPixelBlend(x + 1, y, iceColor.r, iceColor.g, iceColor.b, alpha * 0.7);
-            this.renderer.setPixelBlend(x - 1, y, iceColor.r, iceColor.g, iceColor.b, alpha * 0.7);
-            this.renderer.setPixelBlend(x, y + 1, iceColor.r, iceColor.g, iceColor.b, alpha * 0.7);
-            this.renderer.setPixelBlend(x, y - 1, iceColor.r, iceColor.g, iceColor.b, alpha * 0.7);
-        }
-        
-        // Borda congelada ao redor do pet
-        if (progress < 0.8) {
-            this.renderer.drawNeonCircle(cx, cy, this.pet.size + 5, '#88ddff', 2);
-        }
-    }
-    
-    /**
-     * Desenha efeito de mutação (glitch visual)
-     */
-    drawMutationEffect(data) {
-        const cx = this.pet.x;
-        const cy = this.pet.y;
-        
-        // Linhas de glitch
-        const glitchColor = '#ff00ff';
-        const { r, g, b } = this.renderer.hexToRgb(glitchColor);
-        
-        for (let i = 0; i < data.glitch.slices; i++) {
-            const y = cy - this.pet.size + Math.random() * this.pet.size * 2;
-            const offsetX = data.glitch.offsetX * (Math.random() - 0.5) * 2;
-            
-            // Desenha linha de interferência
-            for (let x = cx - this.pet.size; x < cx + this.pet.size; x++) {
-                if (Math.random() > 0.5) {
-                    this.renderer.setPixelBlend(x + offsetX, y, r, g, b, 100);
-                }
-            }
-        }
-    }
-    
     updateDialogueBubble() {
         let bubble = document.getElementById('dialogue-bubble');
         const dialogue = this.pet.getDialogue();
@@ -1270,8 +1919,9 @@ export default class HomeScene {
             const petCenterX = canvasOffsetX + petScreenX;
             const petCenterY = canvasOffsetY + petScreenY;
             
-            // Raio do pet escalado
-            const petRadius = this.pet.size * this.pet.scale * scaleY;
+            // Raio do pet escalado (considera idade)
+            const ageScale = this.pet.getAgeScale ? this.pet.getAgeScale() : 1;
+            const petRadius = this.pet.size * this.pet.scale * ageScale * scaleY;
             
             // Topo da cabeça do pet + margem para o rabinho do balão (10px)
             const tailHeight = 12; // Altura do rabinho CSS

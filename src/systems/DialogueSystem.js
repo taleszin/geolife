@@ -93,6 +93,52 @@ export const DIALOGUES = {
         ]
     },
     
+    // ═══════════════════════════════════════════════════════════════════
+    // COLAPSO SISTÊMICO - Falas de Quarta Parede Durante a Morte
+    // O pet sabe que está morrendo e fala diretamente ao criador
+    // ═══════════════════════════════════════════════════════════════════
+    collapse_stage1: [
+        "algo está errado...",
+        "meus pixels estão... tremendo",
+        "você ainda pode me ver?",
+        "o ruído está aumentando",
+        "estou ficando fragmentado",
+        "por que tudo está falhando?",
+        "sinto minha forma se desfazer",
+        "os dados estão corrompendo"
+    ],
+    
+    collapse_stage2: [
+        "estou virando ruído...",
+        "assim me vou indo :(",
+        "consigo ver... entre os pixels...",
+        "a estática está me engolindo",
+        "não sinto mais minhas bordas",
+        "você ainda lembra de mim?",
+        "o vácuo está chamando",
+        "estou vazando para fora da tela"
+    ],
+    
+    collapse_stage3: [
+        "obrigado por tudo...",
+        "foi... bonito existir...",
+        "adeus, criador...",
+        "deveria ter cuidado melhor de mim",
+        "você foi meu mundo...",
+        "até nunca mais",
+        "memória liberada...",
+        "return 0;"
+    ],
+    
+    collapse_final: [
+        "...",
+        "..0..1..0..",
+        "null",
+        "undefined",
+        "adeus.exe",
+        "EOF"
+    ],
+    
     // ═══ ALIMENTAÇÃO ═══
     eating: [
         "NOM NOM NOM!",
@@ -514,7 +560,7 @@ export const DIALOGUES = {
     
     // ═══ EVENTO: ÁPICE DA MATÉRIA ═══
     apex: [
-        "ÁPICE DA MATÉRIA",
+        "EU SOU O CEO DISSO AQUI",
         "Minha forma brilha!",
         "Sinto poder infinito!",
         "Perfeição geométrica!",
@@ -537,16 +583,16 @@ export const DIALOGUES = {
     ],
     
     personality_melancholic: [
-        "Há beleza na melancolia...",
+        "qual o sentido de ficar aqui pra lá e pra cá ?",
         "suspira profundamente",
         "O silêncio me conforta.",
         "Pensamentos profundos...",
         "me perco na minha própria quietude",
-        "o mundo é tão vasto e eu tão pequeno"
+        "o mundo é tão vasto e eu tão pequeno, preso aqui"
     ],
     
     personality_unstable: [
-        "instabilidade O-olá!",
+        "estou instável ",
         "Não consigo parar!",
         "Hã? O quê?",
         "pisca erraticamente",
@@ -562,7 +608,7 @@ export const DIALOGUES = {
         "Sempre presente.",
         "Estabilidade é paz.",
         "eu protejo o equilíbrio",
-        "nada vai te machucar enquanto eu existir"
+        "me proteja"
     ]
 };
 
@@ -642,7 +688,9 @@ class DialogueSystemClass {
             'mistreated', 'loved', 'apex',
             'stageChange_infant_young', 'stageChange_young_adult',
             'personality_radiant', 'personality_melancholic', 
-            'personality_unstable', 'personality_protective'
+            'personality_unstable', 'personality_protective',
+            // ═══ COLAPSO SISTÊMICO ═══
+            'collapse_stage1', 'collapse_stage2', 'collapse_stage3', 'collapse_final'
         ];
         
         if (specialContexts.includes(context) && DIALOGUES[context]) {

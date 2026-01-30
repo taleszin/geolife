@@ -181,6 +181,49 @@ class PetVoiceSystemClass {
     }
     
     /**
+     * Gera ruído branco/estática (para efeitos de glitch/morte)
+     * @param {number} startTime - Tempo de início
+     * @param {number} duration - Duração em segundos
+     * @param {number} volume - Volume (0-1)
+     */
+    _generateNoise(startTime, duration, volume) {
+        const ctx = this.audioContext;
+        
+        // Cria buffer de ruído branco
+        const bufferSize = ctx.sampleRate * duration;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+        
+        // Source de ruído
+        const noise = ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        
+        // Filtro para tornar menos harsh
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 2000;
+        
+        // Envelope
+        const envelope = ctx.createGain();
+        envelope.gain.setValueAtTime(0, startTime);
+        envelope.gain.linearRampToValueAtTime(volume, startTime + 0.02);
+        envelope.gain.setValueAtTime(volume * 0.5, startTime + duration * 0.5);
+        envelope.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        
+        // Conexões
+        noise.connect(filter);
+        filter.connect(envelope);
+        envelope.connect(this.masterGain);
+        
+        noise.start(startTime);
+        noise.stop(startTime + duration);
+    }
+    
+    /**
      * Faz o pet "falar" uma frase
      * @param {string} text - Texto a ser "falado" (define ritmo/duração)
      * @param {string} shapeId - Forma do pet (define timbre)
@@ -342,6 +385,24 @@ class PetVoiceSystemClass {
                 this._generateSyllable(baseFreq * 0.9, profile.waveform, 0.1, t, 0.1, 0.1);
                 this._generateSyllable(baseFreq * 1.4, profile.waveform, 0.08, t + 0.15, 0.12, 0.2);
                 this._generateSyllable(baseFreq * 1.6, profile.waveform, 0.12, t + 0.25, 0.08, 0.25);
+                break;
+                
+            case 'dying':
+                // Som de colapso/morte - glitchy descendente
+                for (let i = 0; i < 8; i++) {
+                    const freq = baseFreq * (1.5 - i * 0.15);
+                    const glitchFreq = freq * (0.8 + Math.random() * 0.4); // Randomiza para glitch
+                    this._generateSyllable(
+                        glitchFreq, 
+                        i % 2 === 0 ? 'sawtooth' : 'square', 
+                        0.08 + Math.random() * 0.04, 
+                        t + i * 0.12, 
+                        0.03 + i * 0.01, 
+                        0.15
+                    );
+                }
+                // Ruído final de estática
+                this._generateNoise(t + 1.0, 0.3, 0.08);
                 break;
                 
             default:

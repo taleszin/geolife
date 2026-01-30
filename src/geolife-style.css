@@ -629,14 +629,16 @@ body::after {
     
     #game-container {
         position: fixed;
-        top: 10px;
-        left: 10px;
-        right: 10px;
+        top: 5px;
+        left: 5px;
+        right: 5px;
         bottom: auto;
         transform: none;
         max-width: none;
-        max-height: 50vh;
-        min-height: 200px;
+        max-height: none;
+        min-width: 0;
+        min-height: 0;
+        /* Altura calculada dinamicamente pelo JS */
     }
     
     #home-ui {
@@ -1674,6 +1676,49 @@ button,
     }
 }
 
+/* Efeito de colapso/morte */
+#game-container.effect-collapse {
+    animation: collapse-shake 0.5s ease;
+}
+
+@keyframes collapse-shake {
+    0%, 100% { 
+        transform: translate(-50%, -50%) translate(0, 0); 
+        filter: none;
+    }
+    10% { 
+        transform: translate(-50%, -50%) translate(-5px, 3px); 
+    }
+    20% { 
+        transform: translate(-50%, -50%) translate(5px, -3px); 
+        filter: hue-rotate(20deg);
+    }
+    30% { 
+        transform: translate(-50%, -50%) translate(-3px, 5px); 
+    }
+    40% { 
+        transform: translate(-50%, -50%) translate(3px, -5px); 
+        filter: hue-rotate(-20deg);
+    }
+    50% { 
+        transform: translate(-50%, -50%) translate(-5px, -3px); 
+    }
+    60% { 
+        transform: translate(-50%, -50%) translate(5px, 3px); 
+        filter: saturate(0.5);
+    }
+    70% { 
+        transform: translate(-50%, -50%) translate(-3px, -5px); 
+    }
+    80% { 
+        transform: translate(-50%, -50%) translate(3px, 5px); 
+        filter: hue-rotate(10deg);
+    }
+    90% { 
+        transform: translate(-50%, -50%) translate(-5px, 3px); 
+    }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    DIALOGUE BUBBLE - Variações por emoção
    ═══════════════════════════════════════════════════════════════════ */
@@ -1696,6 +1741,39 @@ button,
     animation: bubble-pop 0.3s ease-out, bubble-bounce 0.2s infinite;
 }
 
+.dialogue-bubble.collapse {
+    border-color: #ff0066;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 0, 20, 0.95));
+    box-shadow: 
+        0 0 20px rgba(255, 0, 102, 0.5),
+        0 0 40px rgba(255, 0, 102, 0.2);
+    animation: bubble-pop 0.3s ease-out, collapse-glitch 0.2s infinite;
+}
+
+.dialogue-bubble.collapse .dialogue-text {
+    color: #ff0066;
+    text-shadow: 0 0 10px rgba(255, 0, 102, 0.8);
+}
+
+@keyframes collapse-glitch {
+    0%, 100% { 
+        transform: translateX(-50%);
+        clip-path: inset(0 0 0 0);
+    }
+    25% { 
+        transform: translateX(-52%);
+        clip-path: inset(0 0 0 0);
+    }
+    50% { 
+        transform: translateX(-48%);
+        clip-path: inset(10% 0 30% 0);
+    }
+    75% { 
+        transform: translateX(-51%);
+        clip-path: inset(0 0 0 0);
+    }
+}
+
 @keyframes bubble-shake {
     0%, 100% { transform: translateX(-50%) rotate(0deg); }
     25% { transform: translateX(-50%) rotate(-2deg); }
@@ -1708,10 +1786,105 @@ button,
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   CONTROLES DE ZOOM
+   ═══════════════════════════════════════════════════════════════════ */
+
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 10px 0;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 6px;
+}
+
+.zoom-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--neon-cyan);
+    border-radius: 4px;
+    color: var(--neon-cyan);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.zoom-btn:hover {
+    background: rgba(0, 255, 255, 0.15);
+    box-shadow: 0 0 10px var(--cyan-dim);
+    transform: scale(1.1);
+}
+
+.zoom-btn:active {
+    transform: scale(0.95);
+}
+
+.zoom-indicator {
+    font-size: 8px;
+    color: var(--neon-cyan);
+    min-width: 60px;
+    text-align: center;
+    font-family: 'Press Start 2P', monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MINIMAPA STYLING (complemento ao JS)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.minimap {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border-radius: 8px;
+    border: 2px solid rgba(0, 255, 255, 0.5);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    z-index: 100;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.minimap:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    MOBILE RESPONSIVO - Ações de interação
    ═══════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 800px) {
+    .zoom-controls {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 6px 8px;
+    }
+    
+    .zoom-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+    
+    .zoom-indicator {
+        font-size: 7px;
+        min-width: 50px;
+    }
+    
+    .minimap {
+        width: 100px !important;
+        height: 75px !important;
+        top: 8px;
+        right: 8px;
+    }
+    
     .home-actions-chaos {
         flex-direction: row;
         flex-wrap: wrap;
