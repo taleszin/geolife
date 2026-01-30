@@ -12,6 +12,14 @@
     user-select: none;
 }
 
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
 :root {
     /* Cores Neon */
     --neon-cyan: #00ffff;
@@ -532,24 +540,95 @@ body::after {
     color: var(--neon-magenta);
 }
 
-.hint-text {
-    position: fixed;
-    bottom: 50px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 8px;
-    color: var(--neon-yellow);
-    text-shadow: 0 0 10px var(--neon-yellow);
-    opacity: 0;
-    transition: opacity 0.3s;
-    text-align: center;
-    padding: 10px 20px;
-    background: rgba(0, 0, 0, 0.8);
-    border: 1px solid var(--neon-yellow);
+/* ═══════════════════════════════════════════════════════════════════
+   BOTÃO DE MINIMIZAR UI
+   ═══════════════════════════════════════════════════════════════════ */
+
+.ui-toggle-btn {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--bg-dark);
+    border: 2px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 10px var(--cyan-dim);
+    line-height: 1;
+    padding: 0;
 }
 
-.hint-text.visible {
+.ui-toggle-btn:hover {
+    background: var(--neon-cyan);
+    color: var(--bg-dark);
+    transform: scale(1.1);
+}
+
+.ui-content {
+    display: flex;
+    flex-direction: column;
+    gap: inherit;
+}
+
+#home-ui.minimized {
+    padding: 8px;
+    width: auto;
+    min-width: 50px;
+}
+
+#home-ui.minimized .ui-toggle-btn {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin: 0 auto;
+}
+
+#editor-ui .ui-toggle-btn {
+    top: -12px;
+    right: -12px;
+}
+
+#editor-ui.minimized {
+    padding: 8px;
+    width: auto;
+    min-width: 50px;
+}
+
+#editor-ui.minimized .ui-toggle-btn {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin: 0 auto;
+}
+
+/* Credits Footer */
+.credits-footer {
+    position: relative;
+    margin-top: 10px;
+    font-size: 6px;
+    color: #444;
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+.credits-footer span {
+    opacity: 0.6;
+    transition: opacity 0.3s;
+}
+
+.credits-footer:hover span {
     opacity: 1;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 5px var(--neon-cyan);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -616,6 +695,11 @@ body::after {
 
 /* Mobile landscape e tablets pequenos */
 @media (max-width: 800px) {
+    /* Remove padding do ui-layer no mobile */
+    #ui-layer {
+        padding: 0;
+    }
+    
     #editor-ui {
         position: fixed;
         right: 10px;
@@ -629,33 +713,47 @@ body::after {
     
     #game-container {
         position: fixed;
-        top: 5px;
-        left: 5px;
-        right: 5px;
+        top: 0;
+        left: 0;
+        right: 0;
         bottom: auto;
         transform: none;
+        width: 100vw !important;
         max-width: none;
         max-height: none;
         min-width: 0;
         min-height: 0;
-        /* Altura calculada dinamicamente pelo JS */
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        box-shadow: none;
+        /* Altura será controlada pelo canvas interno */
     }
     
     #home-ui {
         position: fixed;
-        left: 10px;
-        right: 10px;
+        left: 8px;
+        right: 8px;
         top: auto;
-        bottom: 10px;
+        bottom: 8px;
         transform: none;
         width: auto;
         flex-direction: column;
         gap: 8px;
         max-height: 42vh;
-        background: rgba(10, 10, 15, 0.95);
+        background: rgba(10, 10, 15, 0.96);
         padding: 12px;
         border: 1px solid var(--neon-cyan);
-        border-radius: 8px;
+        border-radius: 12px;
+    }
+    
+    .ui-toggle-btn {
+        top: -10px;
+        right: 10px;
+        width: 24px;
+        height: 24px;
+        font-size: 16px;
     }
     
     .home-header {
@@ -715,17 +813,27 @@ body::after {
 /* Mobile portrait */
 @media (max-width: 480px) {
     #game-container {
-        top: 5px;
-        left: 5px;
-        right: 5px;
-        max-height: 48vh;
-        min-height: 180px;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100vw !important;
+        border: none;
+        border-bottom: 2px solid var(--neon-cyan);
+        border-radius: 0;
+        box-shadow: none;
+        background: transparent;
+        /* Altura dinâmica calculada pelo JS para preencher espaço disponível */
+    }
+    
+    #game-container canvas {
+        width: 100vw !important;
     }
     
     #home-ui {
         max-height: 44vh;
         padding: 10px;
         gap: 6px;
+        border-radius: 10px;
     }
     
     .room-title {
@@ -759,30 +867,46 @@ body::after {
     }
 }
 
-/* Landscape móvel */
+/* Landscape móvel - Layout igual ao desktop (UI lateral direita) */
 @media (max-height: 500px) and (orientation: landscape) {
     #game-container {
         position: fixed;
-        top: 10px;
-        left: 10px;
-        right: 210px;
-        bottom: 10px;
+        top: 0;
+        left: 0;
+        right: 200px;
+        bottom: 0;
         transform: none;
         max-width: none;
         max-height: none;
+        border-radius: 0;
+        border: none;
+        border-right: 2px solid var(--neon-cyan);
     }
     
     #home-ui {
         position: fixed;
         left: auto;
-        right: 10px;
-        bottom: 10px;
-        top: 10px;
-        width: 180px;
+        right: 0;
+        bottom: 0;
+        top: 0;
+        width: 200px;
         max-height: none;
-        padding: 8px;
+        padding: 10px;
         overflow-y: auto;
         transform: none;
+        border-radius: 0;
+        border: none;
+        border-left: 1px solid var(--neon-cyan);
+    }
+    
+    .ui-toggle-btn {
+        top: 5px;
+        right: 5px;
+    }
+    
+    #home-ui.minimized {
+        width: 45px;
+        padding: 5px;
     }
     
     .home-header {
@@ -806,6 +930,23 @@ body::after {
     .action-btn {
         padding: 6px 8px;
         font-size: 5px;
+    }
+    
+    /* Editor também usa layout lateral no landscape */
+    #editor-ui {
+        position: fixed;
+        left: auto;
+        right: 0;
+        bottom: 0;
+        top: 0;
+        width: 260px;
+        max-height: none;
+        padding: 10px;
+        overflow-y: auto;
+        transform: none;
+        border-radius: 0;
+        border: none;
+        border-left: 1px solid var(--neon-cyan);
     }
 }
 
@@ -1412,14 +1553,22 @@ button,
    ═══════════════════════════════════════════════════════════════════ */
 
 @supports (padding: env(safe-area-inset-bottom)) {
-    #game-container {
-        padding-bottom: env(safe-area-inset-bottom);
-        padding-left: env(safe-area-inset-left);
-        padding-right: env(safe-area-inset-right);
+    /* Apenas desktop usa safe-area no container */
+    @media (min-width: 801px) {
+        #game-container {
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
     }
     
+    /* No mobile, safe-area vai apenas no UI */
     #editor-ui {
         padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+    
+    #home-ui {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
     }
 }
 
@@ -1533,17 +1682,6 @@ button,
     margin-bottom: 5px;
 }
 
-/* Seção de ações especiais */
-.home-actions-special {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-    background: rgba(180, 100, 255, 0.1);
-    border: 1px solid rgba(200, 120, 255, 0.3);
-    border-radius: 8px;
-    margin-top: 10px;
-}
 
 .special-label {
     font-size: 6px;

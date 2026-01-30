@@ -295,7 +295,6 @@ export default class HomeScene {
         // Verifica se está dentro dos limites do quarto
         if (this.isInsideRoom(gameX, gameY)) {
             this.pet.moveTo(gameX, gameY);
-            this.showHint('🗺️ Teleportando para o ponto clicado!');
             UISoundSystem.playClick('confirm');
         }
     }
@@ -319,7 +318,6 @@ export default class HomeScene {
         // Verifica se está dentro dos limites do quarto
         if (this.isInsideRoom(gameX, gameY)) {
             this.pet.moveTo(gameX, gameY);
-            this.showHint('🗺️ Teleportando para o ponto tocado!');
             UISoundSystem.playClick('confirm');
         }
     }
@@ -335,25 +333,18 @@ export default class HomeScene {
         
         if (isMobile) {
             if (isLandscape) {
-                const maxWidth = window.innerWidth - 200;
-                const maxHeight = window.innerHeight - 20;
-                const aspectRatio = 16 / 10;
-                if (maxWidth / maxHeight > aspectRatio) {
-                    height = maxHeight;
-                    width = height * aspectRatio;
-                } else {
-                    width = maxWidth;
-                    height = width / aspectRatio;
-                }
+                // Mobile landscape: preenche toda altura, largura menos UI (200px)
+                width = window.innerWidth - 200;
+                height = window.innerHeight;
                 width = Math.max(360, Math.floor(width));
                 height = Math.max(225, Math.floor(height));
             } else {
-                width = Math.floor(window.innerWidth - 10);
-                const uiHeightPercent = 0.44;
-                const availableHeight = window.innerHeight * (1 - uiHeightPercent) - 15;
-                height = Math.floor(availableHeight);
-                width = Math.max(320, width);
-                height = Math.max(280, height);
+                // Mobile portrait: preenche 100% da largura
+                width = window.innerWidth;
+                const uiHeight = window.innerHeight * 0.44;
+                height = Math.floor(window.innerHeight - uiHeight - 8);
+                width = Math.max(320, Math.floor(width));
+                height = Math.max(200, height);
             }
         } else {
             // Desktop: canvas grande no centro, UI lateral
@@ -379,9 +370,14 @@ export default class HomeScene {
         this.canvas.width = width;
         this.canvas.height = height;
         
-        // Define CSS também para garantir consistência
-        this.canvas.style.width = `${width}px`;
-        this.canvas.style.height = `${height}px`;
+        // Define CSS - no mobile portrait usa 100vw para preenchimento total
+        if (isMobile && !isLandscape) {
+            this.canvas.style.width = '100vw';
+            this.canvas.style.height = `${height}px`;
+        } else {
+            this.canvas.style.width = `${width}px`;
+            this.canvas.style.height = `${height}px`;
+        }
         
         this.updateRoomBounds(width, height);
     }
@@ -434,36 +430,26 @@ export default class HomeScene {
         
         if (isMobile) {
             if (isLandscape) {
-                // Mobile landscape: canvas à esquerda, UI à direita (similar a desktop)
-                const maxWidth = window.innerWidth - 200;
-                const maxHeight = window.innerHeight - 20;
+                // Mobile landscape: canvas à esquerda, UI à direita (igual ao desktop)
+                // Preenche toda a altura, largura menos a UI (200px)
+                width = window.innerWidth - 200;
+                height = window.innerHeight;
                 
-                // Mantém aspect ratio 16:10 no landscape
-                const aspectRatio = 16 / 10;
-                if (maxWidth / maxHeight > aspectRatio) {
-                    height = maxHeight;
-                    width = height * aspectRatio;
-                } else {
-                    width = maxWidth;
-                    height = width / aspectRatio;
-                }
-                
+                // Garante mínimos
                 width = Math.max(360, Math.floor(width));
                 height = Math.max(225, Math.floor(height));
             } else {
-                // Mobile portrait: PREENCHE TODA A ÁREA DISPONÍVEL (sem aspect ratio fixo)
-                // Usa toda a largura menos margens mínimas
-                width = Math.floor(window.innerWidth - 10);
+                // Mobile portrait: PREENCHE 100% da largura
+                // Altura = tela menos UI (que ocupa ~44vh)
+                width = window.innerWidth;
                 
-                // Calcula altura disponível: total menos UI embaixo
-                // UI ocupa ~44vh, deixamos espaço seguro
-                const uiHeightPercent = 0.44;
-                const availableHeight = window.innerHeight * (1 - uiHeightPercent) - 15;
-                height = Math.floor(availableHeight);
+                // UI fica embaixo, calcula altura restante
+                const uiHeight = window.innerHeight * 0.44;
+                height = Math.floor(window.innerHeight - uiHeight - 8);
                 
                 // Garante mínimos razoáveis
-                width = Math.max(320, width);
-                height = Math.max(280, height);
+                width = Math.max(320, Math.floor(width));
+                height = Math.max(200, height);
             }
         } else {
             // Desktop: canvas grande no centro, UI lateral
@@ -491,8 +477,15 @@ export default class HomeScene {
         // Atualiza canvas
         this.canvas.width = width;
         this.canvas.height = height;
-        this.canvas.style.width = `${width}px`;
-        this.canvas.style.height = `${height}px`;
+        
+        // No mobile portrait, usa 100vw para garantir preenchimento total
+        if (isMobile && !isLandscape) {
+            this.canvas.style.width = '100vw';
+            this.canvas.style.height = `${height}px`;
+        } else {
+            this.canvas.style.width = `${width}px`;
+            this.canvas.style.height = `${height}px`;
+        }
         
         // Recria o renderer com novas dimensões
         if (this.renderer) {
@@ -760,69 +753,68 @@ export default class HomeScene {
         const uiContainer = document.createElement('div');
         uiContainer.id = 'home-ui';
         uiContainer.innerHTML = `
-            <div class="home-header">
-                <h2 class="room-title" id="mood-display">😊 Feliz</h2>
-                
-                <!-- Info de Idade, Vitalidade e Personalidade -->
-                <div class="pet-info-row" id="pet-info-row">
-                    <span class="pet-age" id="pet-age">🌱 Infante</span>
-                    <span class="pet-personality" id="pet-personality">☀️ Radiante</span>
-                    <span class="pet-vitality" id="pet-vitality">❤️ 75%</span>
+            <button id="ui-toggle-btn" class="ui-toggle-btn" title="Minimizar/Expandir UI">−</button>
+            
+            <div class="ui-content" id="ui-content">
+                <div class="home-header">
+                    <h2 class="room-title" id="mood-display">😊 Feliz</h2>
+                    
+                    <!-- Info de Idade, Vitalidade e Personalidade -->
+                    <div class="pet-info-row" id="pet-info-row">
+                        <span class="pet-age" id="pet-age">🌱 Infante</span>
+                        <span class="pet-personality" id="pet-personality">☀️ Radiante</span>
+                        <span class="pet-vitality" id="pet-vitality">❤️ 75%</span>
+                    </div>
+                    
+                    <div class="stats-panel">
+                        <div class="stat">
+                            <span class="stat-label">FOME</span>
+                            <div class="stat-bar">
+                                <div class="stat-fill" id="hunger-bar"></div>
+                            </div>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">FELICIDADE</span>
+                            <div class="stat-bar">
+                                <div class="stat-fill happiness" id="happiness-bar"></div>
+                            </div>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">ENERGIA</span>
+                            <div class="stat-bar">
+                                <div class="stat-fill energy" id="energy-bar"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="stats-panel">
-                    <div class="stat">
-                        <span class="stat-label">FOME</span>
-                        <div class="stat-bar">
-                            <div class="stat-fill" id="hunger-bar"></div>
-                        </div>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">FELICIDADE</span>
-                        <div class="stat-bar">
-                            <div class="stat-fill happiness" id="happiness-bar"></div>
-                        </div>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">ENERGIA</span>
-                        <div class="stat-bar">
-                            <div class="stat-fill energy" id="energy-bar"></div>
-                        </div>
-                    </div>
+                <div class="home-actions">
+                    <span class="wellness-label">💚 BEM-ESTAR</span>
+                    <button id="feed-btn" class="action-btn positive">🍎 Alimentar</button>
+                    <button id="heal-btn" class="action-btn positive">💚 Curar</button>
+                    <button id="tickle-btn" class="action-btn positive">🪶 Cócegas</button>
+                    <button id="wash-btn" class="action-btn positive">💧 Banho</button>
+                </div>
+                
+                <div class="home-actions-chaos">
+                    <span class="chaos-label">⚠️ CAOS</span>
+                    <button id="shock-btn" class="action-btn danger">⚡ Choque</button>
+                    <button id="freeze-btn" class="action-btn danger">❄️ Congelar</button>
+                    <button id="mutate-btn" class="action-btn danger">🔮 Mutar</button>
+                    <button id="ignite-btn" class="action-btn danger">🔥 Fogo</button>
+                    <button id="fragment-btn" class="action-btn danger">🧬 Fragmentar</button>
+                    <button id="slice-btn" class="action-btn danger">⚔️ Cortar</button>
+                </div>
+                
+                
+                <div class="home-actions-secondary">
+                    <button id="edit-btn" class="action-btn secondary">✏️ Editar</button>
+                </div>
+                
+                <div class="credits-footer">
+                    <span>by dev taleszin • © 2026</span>
                 </div>
             </div>
-            
-            <div class="home-actions">
-                <span class="wellness-label">💚 BEM-ESTAR</span>
-                <button id="feed-btn" class="action-btn positive">🍎 Alimentar</button>
-                <button id="heal-btn" class="action-btn positive">💚 Curar</button>
-                <button id="tickle-btn" class="action-btn positive">🪶 Cócegas</button>
-                <button id="wash-btn" class="action-btn positive">💧 Banho</button>
-            </div>
-            
-            <div class="home-actions-chaos">
-                <span class="chaos-label">⚠️ CAOS</span>
-                <button id="shock-btn" class="action-btn danger">⚡ Choque</button>
-                <button id="freeze-btn" class="action-btn danger">❄️ Congelar</button>
-                <button id="mutate-btn" class="action-btn danger">🔮 Mutar</button>
-                <button id="ignite-btn" class="action-btn danger">🔥 Fogo</button>
-                <button id="fragment-btn" class="action-btn danger">🧬 Fragmentar</button>
-                <button id="slice-btn" class="action-btn danger">⚔️ Cortar</button>
-            </div>
-            
-            <div class="home-actions-special">
-                <span class="special-label">✨ ESPECIAIS</span>
-                <button id="fragment-btn" class="action-btn special">🧬 Fragmentar</button>
-                <button id="ignite-btn" class="action-btn special">🔥 Fogo</button>
-                <button id="wash-btn" class="action-btn special">💧 Água</button>
-                <button id="slice-btn" class="action-btn special">⚔️ Cortar</button>
-            </div>
-            
-            <div class="home-actions-secondary">
-                <button id="edit-btn" class="action-btn secondary">✏️ Editar</button>
-            </div>
-            
-            <div class="hint-text" id="hint-text">Clique no chão para mover seu GeoPet!</div> 
         `;
         
         document.getElementById('ui-layer').appendChild(uiContainer);
@@ -880,9 +872,37 @@ export default class HomeScene {
         const editBtn = document.getElementById('edit-btn');
         editBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
         editBtn.addEventListener('click', () => this.goToEditor());
+        
+        // Botão de minimizar/expandir UI
+        const toggleBtn = document.getElementById('ui-toggle-btn');
+        toggleBtn.addEventListener('click', () => this.toggleUI());
+        
+        // Estado inicial da UI
+        this.uiMinimized = false;
     }
     
-
+    /**
+     * Alterna entre UI minimizada e expandida
+     */
+    toggleUI() {
+        this.uiMinimized = !this.uiMinimized;
+        
+        const uiContent = document.getElementById('ui-content');
+        const toggleBtn = document.getElementById('ui-toggle-btn');
+        const homeUI = document.getElementById('home-ui');
+        
+        if (this.uiMinimized) {
+            uiContent.style.display = 'none';
+            toggleBtn.textContent = '+';
+            homeUI.classList.add('minimized');
+        } else {
+            uiContent.style.display = 'flex';
+            toggleBtn.textContent = '−';
+            homeUI.classList.remove('minimized');
+        }
+        
+        UISoundSystem.playClick('confirm');
+    }
     
     // ═══════════════════════════════════════════════════════════════════
     // DIALOGUE SYSTEM SETUP
@@ -1413,7 +1433,6 @@ export default class HomeScene {
             
             // Move o pet
             this.pet.moveTo(x, y);
-            this.showHint('Seu GeoPet está se movendo!');
         }
     }
 
@@ -1442,8 +1461,6 @@ export default class HomeScene {
             color: '#ff6b6b',
             pulsePhase: 0
         };
-        
-        this.showHint('Comida apareceu! Seu GeoPet vai até ela.');
         
         // Pet vai até a comida
         this.pet.moveTo(this.food.x, this.food.y);
@@ -1478,7 +1495,6 @@ export default class HomeScene {
         const dialogue = DialogueSystem.speak('shocked', 'shocked', this.pet.shapeId);
         this.pet.say(dialogue, 'shocked');
         
-        this.showHint('⚡ ZZZAP! -20 felicidade, -15 energia');
         this.updateAllBars();
         
         // Efeito visual via CSS (shake + amarelado)
@@ -1510,7 +1526,6 @@ export default class HomeScene {
         const dialogue = DialogueSystem.speak('frozen', 'frozen', this.pet.shapeId);
         this.pet.say(dialogue, 'frozen');
         
-        this.showHint('❄️ Congelando! -25 energia, -10 felicidade');
         this.updateAllBars();
         
         // Efeito visual via CSS
@@ -1544,7 +1559,6 @@ export default class HomeScene {
         const dialogue = DialogueSystem.speak('mutating', 'mutating', result.original);
         this.pet.say(dialogue, 'mutating');
         
-        this.showHint(`🔮 Mutando de ${result.original} para ${result.mutated}!`);
         this.updateAllBars();
         
         // Efeito visual via CSS
@@ -1570,7 +1584,6 @@ export default class HomeScene {
             energy: this.pet.energy
         });
         
-        this.showHint('🧬 Pet fragmentado em mitose!');
         this.updateAllBars();
         
         // Efeito visual
@@ -1596,7 +1609,6 @@ export default class HomeScene {
             energy: this.pet.energy
         });
         
-        this.showHint('🔥 Pet pegando fogo!');
         this.updateAllBars();
         
         // Efeito visual
@@ -1622,7 +1634,6 @@ export default class HomeScene {
             energy: this.pet.energy
         });
         
-        this.showHint('💧 Pet recebendo banho refrescante!');
         this.updateAllBars();
     }
     
@@ -1645,7 +1656,6 @@ export default class HomeScene {
             energy: this.pet.energy
         });
         
-        this.showHint('⚔️ Pet cortado ao meio!');
         this.updateAllBars();
         
         // Efeito visual
@@ -1674,7 +1684,6 @@ export default class HomeScene {
         const dialogue = DialogueSystem.speak('tickled', 'tickled', this.pet.shapeId);
         this.pet.say(dialogue, 'tickled');
         
-        this.showHint('🪶 Hahaha! +15 felicidade');
         this.updateAllBars();
     }
     
@@ -1700,7 +1709,6 @@ export default class HomeScene {
         const dialogue = DialogueSystem.speak('healed', 'love', this.pet.shapeId);
         this.pet.say(dialogue, 'healed');
         
-        this.showHint('💚 Curado! +30 stats');
         this.updateAllBars();
         
         this.addScreenEffect('heal');
@@ -1860,16 +1868,6 @@ export default class HomeScene {
         // Passa os dados do pet atual para manter a aparência no editor
         const petData = this.pet.toJSON();
         this.game.changeScene('editor', petData);
-    }
-    
-    showHint(text) {
-        const hint = document.getElementById('hint-text');
-        hint.textContent = text;
-        hint.classList.add('visible');
-        
-        setTimeout(() => {
-            hint.classList.remove('visible');
-        }, 2000);
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -2043,8 +2041,6 @@ export default class HomeScene {
             PetVoiceSystem.emote('eat', this.pet.shapeId);
             const dialogue = DialogueSystem.speak('eating', 'happy', this.pet.shapeId);
             this.pet.say(dialogue, 'eating');
-            
-            this.showHint('Nhom nhom! +25 fome');
         }
     }
     
@@ -2179,25 +2175,13 @@ export default class HomeScene {
         const ctx = this.renderer.ctx;
         
         if (this.backgroundLoaded && this.backgroundImage) {
-            // Calcula dimensões para cover
-            const imgRatio = this.backgroundImage.width / this.backgroundImage.height;
-            const canvasRatio = this.canvas.width / this.canvas.height;
-            
-            let drawWidth, drawHeight, offsetX, offsetY;
-            
-            if (canvasRatio > imgRatio) {
-                drawWidth = this.canvas.width;
-                drawHeight = drawWidth / imgRatio;
-                offsetX = 0;
-                offsetY = (this.canvas.height - drawHeight) / 2;
-            } else {
-                drawHeight = this.canvas.height;
-                drawWidth = drawHeight * imgRatio;
-                offsetX = (this.canvas.width - drawWidth) / 2;
-                offsetY = 0;
-            }
-            
-            ctx.drawImage(this.backgroundImage, offsetX, offsetY, drawWidth, drawHeight);
+            // Preenche TODA a tela sem espaços - stretch para ocupar 100%
+            ctx.drawImage(
+                this.backgroundImage, 
+                0, 0, 
+                this.canvas.width, 
+                this.canvas.height
+            );
             
             // Overlay escuro sutil para contraste
             ctx.fillStyle = 'rgba(5, 5, 10, 0.35)';

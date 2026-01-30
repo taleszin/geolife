@@ -1,8 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════
 // GEOLIFE - Main Entry Point
 // Tamagotchi Geométrico com Canvas Puro
+// 
+// Desenvolvido por: dev taleszin
+// © 2026 Todos os direitos reservados
 // ═══════════════════════════════════════════════════════════════════
 
+import IrisScene from './scenes/IrisScene.js';
+import SplashScene from './scenes/SplashScene.js';
 import EditorScene from './scenes/EditorScene.js';
 import HomeScene from './scenes/HomeScene.js';
 
@@ -10,21 +15,31 @@ class Game {
     constructor() {
         this.currentScene = null;
         this.scenes = {
+            iris: IrisScene,
+            splash: SplashScene,
             editor: EditorScene,
             home: HomeScene
         };
+        
+        // Versão e créditos
+        this.version = '1.0.0';
+        this.author = 'dev taleszin';
+        this.year = 2026;
     }
     
     init() {
         console.log('🎮 GEOLIFE - Iniciando...');
+        console.log(`📝 Versão: ${this.version}`);
+        console.log(`👤 Desenvolvido por: ${this.author}`);
+        console.log(`📅 © ${this.year} Todos os direitos reservados`);
         
         // Mostrar containers
         document.getElementById('game-container').style.opacity = '1';
         document.getElementById('game-container').style.pointerEvents = 'auto';
         document.getElementById('ui-layer').style.opacity = '1';
         
-        // Iniciar no editor
-        this.changeScene('editor');
+        // Iniciar com efeito de abertura (íris → splash → editor)
+        this.changeScene('iris');
     }
     
     changeScene(sceneName, data = null) {

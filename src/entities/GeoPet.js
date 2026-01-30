@@ -4338,7 +4338,7 @@ export default class GeoPet {
         // Apaga fogo se estiver pegando
         if (this.isOnFire) {
             this.extinguish();
-            this.say("a água salvou minha vida! 💙", 'saved');
+            this.say("a água salvou minha vida!", 'saved');
             this.happiness = Math.min(100, this.happiness + 15);
             return;
         }

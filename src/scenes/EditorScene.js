@@ -118,48 +118,84 @@ export default class EditorScene {
         const uiContainer = document.createElement('div');
         uiContainer.id = 'editor-ui';
         uiContainer.innerHTML = `
-            <h1 class="editor-title"> CRIAR GEOPET </h1>
+            <button id="editor-toggle-btn" class="ui-toggle-btn" title="Minimizar/Expandir">−</button>
             
-            <div class="editor-section">
-                <h3>FORMA</h3>
-                <div class="option-row" id="shape-options"></div>
-            </div>
-            
-            <div class="editor-section">
-                <h3>MATÉRIA-PRIMA</h3>
-                <div class="material-row" id="material-options"></div>
-                <div class="material-description" id="material-desc">
-                    <span class="material-name"></span>
-                    <span class="material-text"></span>
+            <div class="ui-content" id="editor-ui-content">
+                <h1 class="editor-title"> CRIAR GEOPET </h1>
+                
+                <div class="editor-section">
+                    <h3>FORMA</h3>
+                    <div class="option-row" id="shape-options"></div>
                 </div>
-            </div>
-            
-            <div class="editor-section">
-                <h3>CONTORNO <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="border-color-btn" title="Cor do contorno neon"></button> <button class="color-reset-btn" id="border-color-reset" title="Resetar cor">✕</button><input type="color" id="border-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
-                <p class="section-hint">Cor do contorno neon do seu GeoPet</p>
-            </div>
-            
-            <div class="editor-section">
-                <h3>OLHOS <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="eye-color-btn" title="Cor customizada"></button> <button class="color-reset-btn" id="eye-color-reset" title="Resetar cor">✕</button><input type="color" id="eye-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
-                <div class="option-row" id="eye-options"></div>
-            </div>
-            
-            <div class="editor-section">
-                <h3>BOCA <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="mouth-color-btn" title="Cor customizada"></button> <button class="color-reset-btn" id="mouth-color-reset" title="Resetar cor">✕</button><input type="color" id="mouth-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
-                <div class="option-row" id="mouth-options"></div>
-            </div>
-            
-            <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
-                <button id="randomize-pet-btn" class="neon-btn small" title="Gerar aleatoriamente">⤴ ALEATÓRIO</button>
-                <button id="create-pet-btn" class="neon-btn">CRIAR GEOPET</button>
+                
+                <div class="editor-section">
+                    <h3>MATÉRIA-PRIMA</h3>
+                    <div class="material-row" id="material-options"></div>
+                    <div class="material-description" id="material-desc">
+                        <span class="material-name"></span>
+                        <span class="material-text"></span>
+                    </div>
+                </div>
+                
+                <div class="editor-section">
+                    <h3>CONTORNO <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="border-color-btn" title="Cor do contorno neon"></button> <button class="color-reset-btn" id="border-color-reset" title="Resetar cor">✕</button><input type="color" id="border-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
+                    <p class="section-hint">Cor do contorno neon do seu GeoPet</p>
+                </div>
+                
+                <div class="editor-section">
+                    <h3>OLHOS <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="eye-color-btn" title="Cor customizada"></button> <button class="color-reset-btn" id="eye-color-reset" title="Resetar cor">✕</button><input type="color" id="eye-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
+                    <div class="option-row" id="eye-options"></div>
+                </div>
+                
+                <div class="editor-section">
+                    <h3>BOCA <span class="color-wrap" style="position:relative; display:inline-block;"><button class="rainbow-btn" id="mouth-color-btn" title="Cor customizada"></button> <button class="color-reset-btn" id="mouth-color-reset" title="Resetar cor">✕</button><input type="color" id="mouth-color-input" value="#00ffff" style="position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:6px; width:34px; height:34px; opacity:0; border:0; padding:0; cursor:pointer;"></span></h3>
+                    <div class="option-row" id="mouth-options"></div>
+                </div>
+                
+                <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
+                    <button id="randomize-pet-btn" class="neon-btn small" title="Gerar aleatoriamente">⤴ ALEATÓRIO</button>
+                    <button id="create-pet-btn" class="neon-btn">CRIAR GEOPET</button>
+                </div>
+                
+                <div class="credits-footer">
+                    <span>by dev taleszin • © 2026</span>
+                </div>
             </div>
         `;
         
         document.getElementById('ui-layer').appendChild(uiContainer);
         
+        // Configura botão de toggle
+        const toggleBtn = document.getElementById('editor-toggle-btn');
+        toggleBtn.addEventListener('click', () => this.toggleEditorUI());
+        this.editorMinimized = false;
+        
         this.populateOptions();
         this.bindEvents();
         this.updateMaterialDescription();
+    }
+    
+    /**
+     * Alterna entre UI minimizada e expandida
+     */
+    toggleEditorUI() {
+        this.editorMinimized = !this.editorMinimized;
+        
+        const uiContent = document.getElementById('editor-ui-content');
+        const toggleBtn = document.getElementById('editor-toggle-btn');
+        const editorUI = document.getElementById('editor-ui');
+        
+        if (this.editorMinimized) {
+            uiContent.style.display = 'none';
+            toggleBtn.textContent = '+';
+            editorUI.classList.add('minimized');
+        } else {
+            uiContent.style.display = 'flex';
+            toggleBtn.textContent = '−';
+            editorUI.classList.remove('minimized');
+        }
+        
+        UISoundSystem.playClick('confirm');
     }
     
     populateOptions() {

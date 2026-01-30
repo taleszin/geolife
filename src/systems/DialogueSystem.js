@@ -350,7 +350,7 @@ export const DIALOGUES = {
         "Ahahaha! Chega!",
         "Minhas arestas são sensíveis!",
         "hehehe",
-        "Não nos vértices! Haha!",
+        "coça ai!",
         "risadinha",
         "Para para HAHAHA!",
         "aiaiai uiuiui",

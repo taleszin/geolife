@@ -993,6 +993,13 @@ export default class Renderer {
     }
     
     /**
+     * Alias para flush - apresenta o buffer na tela
+     */
+    present() {
+        this.flush();
+    }
+    
+    /**
      * Aplica o buffer de pixels ao canvas com composição alpha
      * Preserva o que já estava desenhado no canvas
      */
