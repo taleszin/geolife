@@ -1514,9 +1514,40 @@ button,
     margin-top: 10px;
 }
 
+.wellness-label {
+    font-size: 6px;
+    color: #00ff88;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-align: center;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
 .chaos-label {
     font-size: 6px;
     color: #ff6666;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+/* Seção de ações especiais */
+.home-actions-special {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: rgba(180, 100, 255, 0.1);
+    border: 1px solid rgba(200, 120, 255, 0.3);
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.special-label {
+    font-size: 6px;
+    color: #b888ff;
     text-transform: uppercase;
     letter-spacing: 2px;
     text-align: center;
@@ -1545,6 +1576,21 @@ button,
     box-shadow: 0 0 20px rgba(255, 100, 100, 0.4);
     border-color: #ff4444;
     color: #ff4444;
+}
+
+/* Botões de ação especial */
+.action-btn.special {
+    border-color: #b888ff;
+    color: #b888ff;
+    font-size: 9px;
+    padding: 8px 12px;
+}
+
+.action-btn.special:hover {
+    background: rgba(180, 100, 255, 0.2);
+    box-shadow: 0 0 20px rgba(200, 120, 255, 0.5);
+    border-color: #d0a0ff;
+    color: #d0a0ff;
 }
 
 /* Seção de ações secundárias */

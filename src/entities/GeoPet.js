@@ -184,6 +184,35 @@ export default class GeoPet {
         this.airFriction = 0.985;            // Fricção reduzida no ar
         
         // ═══════════════════════════════════════════════════════════════════
+        // NOVAS INTERAÇÕES ESPECIAIS
+        // ═══════════════════════════════════════════════════════════════════
+        // Fragmentação (Mitose)
+        this.isFragmented = false;           // Está fragmentado?
+        this.fragmentDuration = 0;           // Tempo restante fragmentado
+        this.fragments = [];                 // Array de fragmentos {x, y, vx, vy, angle, scale}
+        this.fragmentCount = 4;              // Número de fragmentos
+        
+        // Fogo
+        this.isOnFire = false;               // Está pegando fogo?
+        this.fireIntensity = 0;              // Intensidade do fogo (0-1)
+        this.fireDuration = 0;               // Tempo restante em fogo
+        this.fireParticles = [];             // Partículas de fogo
+        this.fireDamageTimer = 0;            // Timer para dano por fogo
+        
+        // Água/Banho
+        this.isWet = false;                  // Está molhado?
+        this.wetDuration = 0;                // Tempo restante molhado
+        this.waterDroplets = [];             // Gotas d'água caindo
+        this.splashParticles = [];           // Partículas de splash
+        
+        // Corte ao Meio
+        this.isSliced = false;               // Foi cortado?
+        this.sliceDuration = 0;              // Tempo até juntar novamente
+        this.sliceOffset = 0;                // Offset de separação das partes
+        this.sliceAngle = 0;                 // Ângulo do corte
+        this.sliceParticles = [];            // Partículas do corte
+        
+        // ═══════════════════════════════════════════════════════════════════
         // SISTEMA DE FALAS (Typewriter Effect)
         // ═══════════════════════════════════════════════════════════════════
         this.currentDialogue = null;      // Texto completo
@@ -524,6 +553,20 @@ export default class GeoPet {
         
         // Atualiza animações
         this.updateAnimations(dt);
+        
+        // ═══ NOVAS INTERAÇÕES ESPECIAIS ═══
+        if (this.isFragmented) {
+            this.updateFragmentation(dt);
+        }
+        if (this.isOnFire) {
+            this.updateFire(dt);
+        }
+        if (this.isWet) {
+            this.updateWater(dt);
+        }
+        if (this.isSliced) {
+            this.updateSlice(dt);
+        }
         
         // ═══ SISTEMA DE SEGURAR E ARREMESSAR ═══
         // Atualiza estado de segurado
@@ -1636,6 +1679,377 @@ export default class GeoPet {
         }
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // UPDATES E RENDERS DAS NOVAS INTERAÇÕES
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Atualiza fragmentação
+     */
+    updateFragmentation(dt) {
+        this.fragmentDuration -= dt;
+        
+        const totalDuration = 5;
+        const mergeStartTime = 2; // Começa a fundir após 2 segundos
+        
+        // Atualiza fragmentos
+        for (const frag of this.fragments) {
+            frag.angle += frag.rotationSpeed;
+            frag.rotation += frag.rotationSpeed * 5;
+            frag.pulse += dt * 4;
+            
+            // Fase 1: Orbitando (primeiros 2 segundos)
+            if (this.fragmentDuration > (totalDuration - mergeStartTime)) {
+                // Oscilação de distância
+                frag.distance = frag.initialDistance + Math.sin(frag.pulse) * 10;
+                frag.mergeProgress = 0;
+            } 
+            // Fase 2: Fundindo (últimos 3 segundos)
+            else {
+                const mergeTime = totalDuration - mergeStartTime;
+                frag.mergeProgress = 1 - (this.fragmentDuration / mergeTime);
+                
+                // Move em direção ao centro
+                frag.distance = frag.initialDistance * (1 - frag.mergeProgress);
+                
+                // Aumenta escala gradualmente de 0.25x para 1.0x dividido pelo número de fragmentos
+                // Quando todos se fundem, a soma das escalas = 1.0x
+                frag.scale = 0.25 + (frag.mergeProgress * 0.75);
+            }
+        }
+        
+        // Termina fragmentação
+        if (this.fragmentDuration <= 0) {
+            this.isFragmented = false;
+            this.fragments = [];
+            this.say("juntei de novo! 😊", 'merge');
+            this.squash(0.6, 1.4);
+        }
+    }
+    
+    /**
+     * Atualiza fogo
+     */
+    updateFire(dt) {
+        this.fireDuration -= dt;
+        this.fireDamageTimer += dt;
+        
+        // Dano por fogo a cada segundo
+        if (this.fireDamageTimer >= 1.0) {
+            this.fireDamageTimer = 0;
+            this.happiness = Math.max(0, this.happiness - 3);
+            this.energy = Math.max(0, this.energy - 2);
+        }
+        
+        // Gera partículas de fogo
+        if (Math.random() < 0.3) {
+            const ageScale = this.getAgeScale();
+            this.fireParticles.push({
+                x: this.x + (Math.random() - 0.5) * this.size * ageScale,
+                y: this.y + (Math.random() - 0.5) * this.size * ageScale,
+                vx: (Math.random() - 0.5) * 2,
+                vy: -2 - Math.random() * 3,
+                life: 1.0,
+                size: 3 + Math.random() * 4,
+                color: Math.random() > 0.5 ? '#ff4500' : '#ffaa00'
+            });
+        }
+        
+        // Atualiza partículas
+        for (let i = this.fireParticles.length - 1; i >= 0; i--) {
+            const p = this.fireParticles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= dt * 2;
+            
+            if (p.life <= 0) {
+                this.fireParticles.splice(i, 1);
+            }
+        }
+        
+        // Reduz intensidade gradualmente
+        this.fireIntensity = Math.max(0, this.fireDuration / 6);
+        
+        // Termina fogo
+        if (this.fireDuration <= 0) {
+            this.extinguish();
+        }
+    }
+    
+    /**
+     * Atualiza água
+     */
+    updateWater(dt) {
+        this.wetDuration -= dt;
+        
+        // Gera gotas d'água caindo
+        if (Math.random() < 0.2) {
+            const ageScale = this.getAgeScale();
+            this.waterDroplets.push({
+                x: this.x + (Math.random() - 0.5) * this.size * ageScale * 0.8,
+                y: this.y - this.size * ageScale * 0.5,
+                vy: Math.random() * 2 + 1,
+                life: 1.0,
+                size: 2 + Math.random() * 2
+            });
+        }
+        
+        // Atualiza gotas
+        for (let i = this.waterDroplets.length - 1; i >= 0; i--) {
+            const d = this.waterDroplets[i];
+            d.y += d.vy;
+            d.vy += 0.2; // Gravidade
+            d.life -= dt * 1.5;
+            
+            if (d.life <= 0) {
+                this.waterDroplets.splice(i, 1);
+            }
+        }
+        
+        // Atualiza splash
+        for (let i = this.splashParticles.length - 1; i >= 0; i--) {
+            const p = this.splashParticles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.3; // Gravidade
+            p.vx *= 0.98;
+            p.life -= dt * 2;
+            
+            if (p.life <= 0) {
+                this.splashParticles.splice(i, 1);
+            }
+        }
+        
+        // Termina molhado
+        if (this.wetDuration <= 0) {
+            this.isWet = false;
+            this.waterDroplets = [];
+            this.splashParticles = [];
+        }
+    }
+    
+    /**
+     * Atualiza corte
+     */
+    updateSlice(dt) {
+        this.sliceDuration -= dt;
+        
+        // Separa as metades gradualmente
+        if (this.sliceOffset < 20) {
+            this.sliceOffset += dt * 15;
+        }
+        
+        // Atualiza partículas do corte
+        for (let i = this.sliceParticles.length - 1; i >= 0; i--) {
+            const p = this.sliceParticles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.3; // Gravidade
+            p.vx *= 0.95;
+            p.life -= dt * 1.5;
+            
+            if (p.life <= 0) {
+                this.sliceParticles.splice(i, 1);
+            }
+        }
+        
+        // Junta novamente
+        if (this.sliceDuration <= 1 && this.sliceOffset > 0) {
+            this.sliceOffset -= dt * 25;
+        }
+        
+        // Termina corte
+        if (this.sliceDuration <= 0) {
+            this.isSliced = false;
+            this.sliceOffset = 0;
+            this.sliceParticles = [];
+            this.say("juntei de novo! 😅", 'heal');
+            this.squash(0.7, 1.3);
+        }
+    }
+    
+    /**
+     * Renderiza fragmentos (pets completos em miniatura)
+     */
+    renderFragments(renderer) {
+        if (!this.isFragmented) return;
+        
+        const ageScale = this.getAgeScale();
+        const shape = SHAPES_MAP[this.shapeId];
+        if (!shape) return;
+        
+        for (const frag of this.fragments) {
+            const x = this.x + Math.cos(frag.angle) * frag.distance;
+            const y = this.y + Math.sin(frag.angle) * frag.distance;
+            
+            // Escala do fragmento (mantém proporção com idade)
+            const fragScale = frag.scale * ageScale;
+            const scaleX = this.scale * fragScale * (1 + Math.sin(frag.pulse) * 0.05);
+            const scaleY = this.scale * fragScale * (1 + Math.sin(frag.pulse) * 0.05);
+            
+            // Desenha corpo do fragmento
+            const params = shape.getParams(this.size * this.scale);
+            
+            if (params.type === 'circle') {
+                const rx = params.radius * scaleX / this.scale;
+                const ry = params.radius * scaleY / this.scale;
+                
+                // Desenha círculo preenchido
+                for (let angle = 0; angle < Math.PI * 2; angle += 0.1) {
+                    for (let r = 0; r < rx; r += 0.5) {
+                        const px = x + Math.cos(angle + frag.rotation) * r;
+                        const py = y + Math.sin(angle + frag.rotation) * r * (ry / rx);
+                        const { r: red, g: green, b: blue } = renderer.hexToRgb(this.primaryColor);
+                        const alpha = 180 + Math.sin(frag.pulse) * 50;
+                        renderer.setPixel(Math.round(px), Math.round(py), red, green, blue, alpha);
+                    }
+                }
+                
+                // Borda
+                for (let angle = 0; angle < Math.PI * 2; angle += 0.1) {
+                    const px = x + Math.cos(angle + frag.rotation) * rx;
+                    const py = y + Math.sin(angle + frag.rotation) * ry;
+                    const { r: red, g: green, b: blue } = renderer.hexToRgb(this.borderColor || this.primaryColor);
+                    renderer.setPixel(Math.round(px), Math.round(py), red, green, blue, 255);
+                }
+                
+            } else if (params.type === 'polygon') {
+                // Desenha polígono
+                const transformed = params.vertices.map(v => ({
+                    x: x + v.x * scaleX / this.scale * Math.cos(frag.rotation) - v.y * scaleY / this.scale * Math.sin(frag.rotation),
+                    y: y + v.x * scaleX / this.scale * Math.sin(frag.rotation) + v.y * scaleY / this.scale * Math.cos(frag.rotation)
+                }));
+                
+                // Preenche polígono
+                const minY = Math.min(...transformed.map(p => p.y));
+                const maxY = Math.max(...transformed.map(p => p.y));
+                
+                for (let py = minY; py <= maxY; py++) {
+                    const intersections = [];
+                    for (let i = 0; i < transformed.length; i++) {
+                        const p1 = transformed[i];
+                        const p2 = transformed[(i + 1) % transformed.length];
+                        
+                        if ((p1.y <= py && p2.y > py) || (p2.y <= py && p1.y > py)) {
+                            const t = (py - p1.y) / (p2.y - p1.y);
+                            const px = p1.x + t * (p2.x - p1.x);
+                            intersections.push(px);
+                        }
+                    }
+                    
+                    intersections.sort((a, b) => a - b);
+                    for (let i = 0; i < intersections.length; i += 2) {
+                        if (i + 1 < intersections.length) {
+                            for (let px = intersections[i]; px <= intersections[i + 1]; px++) {
+                                const { r: red, g: green, b: blue } = renderer.hexToRgb(this.primaryColor);
+                                const alpha = 180 + Math.sin(frag.pulse) * 50;
+                                renderer.setPixel(Math.round(px), Math.round(py), red, green, blue, alpha);
+                            }
+                        }
+                    }
+                }
+                
+                // Borda
+                for (let i = 0; i < transformed.length; i++) {
+                    const p1 = transformed[i];
+                    const p2 = transformed[(i + 1) % transformed.length];
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    for (let t = 0; t < dist; t += 0.5) {
+                        const px = p1.x + (dx / dist) * t;
+                        const py = p1.y + (dy / dist) * t;
+                        const { r: red, g: green, b: blue } = renderer.hexToRgb(this.borderColor || this.primaryColor);
+                        renderer.setPixel(Math.round(px), Math.round(py), red, green, blue, 255);
+                    }
+                }
+            }
+            
+            // Desenha olhos simples no fragmento
+            const eyeSize = Math.max(1, fragScale * 3);
+            const eyeOffset = fragScale * 8;
+            
+            // Olho esquerdo
+            const leftEyeX = x - eyeOffset;
+            const leftEyeY = y - eyeOffset / 2;
+            for (let i = -eyeSize; i <= eyeSize; i++) {
+                for (let j = -eyeSize; j <= eyeSize; j++) {
+                    if (i * i + j * j <= eyeSize * eyeSize) {
+                        const { r, g, b } = renderer.hexToRgb(this.eyeColor || '#000000');
+                        renderer.setPixel(Math.round(leftEyeX + i), Math.round(leftEyeY + j), r, g, b, 200);
+                    }
+                }
+            }
+            
+            // Olho direito
+            const rightEyeX = x + eyeOffset;
+            const rightEyeY = y - eyeOffset / 2;
+            for (let i = -eyeSize; i <= eyeSize; i++) {
+                for (let j = -eyeSize; j <= eyeSize; j++) {
+                    if (i * i + j * j <= eyeSize * eyeSize) {
+                        const { r, g, b } = renderer.hexToRgb(this.eyeColor || '#000000');
+                        renderer.setPixel(Math.round(rightEyeX + i), Math.round(rightEyeY + j), r, g, b, 200);
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Renderiza fogo
+     */
+    renderFire(renderer) {
+        if (!this.isOnFire) return;
+        
+        // Partículas de fogo
+        for (const p of this.fireParticles) {
+            const { r, g, b } = renderer.hexToRgb(p.color);
+            const alpha = Math.floor(p.life * 255);
+            
+            for (let i = 0; i < p.size; i++) {
+                const angle = (i / p.size) * Math.PI * 2;
+                const px = p.x + Math.cos(angle) * (p.size - i);
+                const py = p.y + Math.sin(angle) * (p.size - i);
+                renderer.setPixel(Math.round(px), Math.round(py), r, g, b, alpha);
+            }
+        }
+    }
+    
+    /**
+     * Renderiza água
+     */
+    renderWater(renderer) {
+        // Gotas
+        for (const d of this.waterDroplets) {
+            const alpha = Math.floor(d.life * 200);
+            renderer.setPixel(Math.round(d.x), Math.round(d.y), 100, 180, 255, alpha);
+            renderer.setPixel(Math.round(d.x), Math.round(d.y + 1), 100, 180, 255, alpha * 0.7);
+        }
+        
+        // Splash
+        for (const p of this.splashParticles) {
+            const alpha = Math.floor(p.life * 180);
+            for (let i = 0; i < p.size; i++) {
+                renderer.setPixel(Math.round(p.x + i), Math.round(p.y), 150, 200, 255, alpha);
+            }
+        }
+    }
+    
+    /**
+     * Renderiza corte
+     */
+    renderSlice(renderer) {
+        if (!this.isSliced) return;
+        
+        // Partículas do corte
+        for (const p of this.sliceParticles) {
+            const { r, g, b } = renderer.hexToRgb(this.primaryColor);
+            const alpha = Math.floor(p.life * 200);
+            renderer.setPixel(Math.round(p.x), Math.round(p.y), r * 0.8, g * 0.8, b * 0.8, alpha);
+        }
+    }
+    
     updateDialogue(deltaTime) {
         if (!this.currentDialogue) return;
         
@@ -1775,21 +2189,24 @@ export default class GeoPet {
             this.renderCollapseEffects(renderer);
         }
         
-        // NOTA: Glow/Auréola circular REMOVIDO - visual mais limpo!
-        // O brilho agora vem apenas da borda neon do corpo
-        
-        // 2. Partículas de Ápice (se no estado máximo)
-        if (mods.isApex && !this.isCollapsing) {
-            this.drawApexParticles(renderer);
+        // Se está fragmentado, não desenha o corpo principal (só os fragmentos)
+        if (!this.isFragmented) {
+            // NOTA: Glow/Auréola circular REMOVIDO - visual mais limpo!
+            // O brilho agora vem apenas da borda neon do corpo
+            
+            // 2. Partículas de Ápice (se no estado máximo)
+            if (mods.isApex && !this.isCollapsing) {
+                this.drawApexParticles(renderer);
+            }
+            
+            // 2. Corpo (com jitter aplicado)
+            const offsetX = jitterX;
+            const offsetY = jitterY + breathOffset;
+            this.drawBodyWithGlitch(renderer, offsetX, offsetY, scaleX, scaleY, glitchFactor);
+            
+            // 3. Face (olhos, boca, sobrancelhas)
+            this.drawFace(renderer, breathOffset + jitterY, scaleX, scaleY);
         }
-        
-        // 2. Corpo (com jitter aplicado)
-        const offsetX = jitterX;
-        const offsetY = jitterY + breathOffset;
-        this.drawBodyWithGlitch(renderer, offsetX, offsetY, scaleX, scaleY, glitchFactor);
-        
-        // 3. Face (olhos, boca, sobrancelhas)
-        this.drawFace(renderer, breathOffset + jitterY, scaleX, scaleY);
         
         // 4. Partículas de colapso (por cima de tudo)
         if (this.collapseParticles.length > 0) {
@@ -1799,6 +2216,20 @@ export default class GeoPet {
         // 5. Estrelinhas de tontura (se zonzo)
         if (this.isDizzy) {
             this.renderDizzyStars(renderer);
+        }
+        
+        // 6. Efeitos das novas interações
+        if (this.isFragmented) {
+            this.renderFragments(renderer);
+        }
+        if (this.isOnFire) {
+            this.renderFire(renderer);
+        }
+        if (this.isWet) {
+            this.renderWater(renderer);
+        }
+        if (this.isSliced) {
+            this.renderSlice(renderer);
         }
         
         // Limpa referências temporárias
@@ -1864,6 +2295,34 @@ export default class GeoPet {
         // Atualiza o tempo do MaterialRenderer
         materialRenderer.update(16);
         
+        // Se está cortado, renderiza duas metades
+        if (this.isSliced) {
+            const offset = this.sliceOffset;
+            const cos = Math.cos(this.sliceAngle);
+            const sin = Math.sin(this.sliceAngle);
+            
+            // Metade 1 (move perpendicular ao corte)
+            const cx1 = cx - sin * offset;
+            const cy1 = cy + cos * offset;
+            
+            // Metade 2 (move na direção oposta)
+            const cx2 = cx + sin * offset;
+            const cy2 = cy - cos * offset;
+            
+            // Renderiza ambas as metades
+            this.drawBodyHalf(renderer, cx1, cy1, scaleX, scaleY, glitchFactor, params, true);
+            this.drawBodyHalf(renderer, cx2, cy2, scaleX, scaleY, glitchFactor, params, false);
+            
+            // Linha de corte
+            const lineLength = this.size * Math.max(scaleX, scaleY);
+            for (let i = -lineLength; i < lineLength; i++) {
+                const lx = cx + cos * i;
+                const ly = cy + sin * i;
+                renderer.setPixel(Math.round(lx), Math.round(ly), 255, 50, 50, 200);
+            }
+            return;
+        }
+        
         if (params.type === 'circle') {
             const rx = params.radius * scaleX / this.scale;
             const ry = params.radius * scaleY / this.scale;
@@ -1899,6 +2358,29 @@ export default class GeoPet {
                 this.drawCustomNeonBorder(renderer, transformed);
             } else {
                 materialRenderer.stroke(renderer, transformed, this.materialId);
+            }
+        }
+    }
+    
+    /**
+     * Desenha metade do corpo (usado no corte)
+     */
+    drawBodyHalf(renderer, cx, cy, scaleX, scaleY, glitchFactor, params, isTopHalf) {
+        if (params.type === 'circle') {
+            const rx = params.radius * scaleX / this.scale;
+            const ry = params.radius * scaleY / this.scale;
+            
+            // Desenha apenas uma metade do círculo
+            const startAngle = isTopHalf ? Math.PI : 0;
+            const endAngle = isTopHalf ? Math.PI * 2 : Math.PI;
+            
+            for (let a = startAngle; a < endAngle; a += 0.1) {
+                for (let r = 0; r < rx; r += 0.5) {
+                    const x = cx + Math.cos(a) * r;
+                    const y = cy + Math.sin(a) * r * (ry / rx);
+                    const { r: red, g: green, b: blue } = renderer.hexToRgb(this.primaryColor);
+                    renderer.setPixel(Math.round(x), Math.round(y), red, green, blue, 200);
+                }
             }
         }
     }
@@ -3745,6 +4227,204 @@ export default class GeoPet {
         this.squash(1.1, 0.9);
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // NOVAS INTERAÇÕES ESPECIAIS
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * FRAGMENTAÇÃO (MITOSE) - Pet se divide em cópias menores
+     */
+    fragment() {
+        if (this.isFragmented || this.isDead || this.isCollapsing) return;
+        
+        this.isFragmented = true;
+        this.fragmentDuration = 5; // 5 segundos fragmentado
+        this.fragments = [];
+        
+        // Cria fragmentos ao redor do pet (cópias pequenas 0.25x)
+        const numFragments = 4; // 4 fragmentos
+        const fragmentScale = 0.25; // 25% do tamanho original
+        
+        for (let i = 0; i < numFragments; i++) {
+            const angle = (i / numFragments) * Math.PI * 2;
+            const distance = 60 + Math.random() * 20; // Distância inicial
+            this.fragments.push({
+                angle: angle,
+                distance: distance,
+                targetDistance: distance,
+                initialDistance: distance,
+                scale: fragmentScale,
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.05,
+                pulse: Math.random() * Math.PI * 2,
+                mergeProgress: 0 // 0 = separado, 1 = fundido
+            });
+        }
+        
+        // Squash inicial
+        this.squash(1.4, 0.6);
+        
+        // Diálogo
+        const phrases = [
+            "me dividindo! 😵",
+            "mitose ativada!",
+            "somos muitos agora!",
+            "divisão celular!",
+            "me multipliquei!"
+        ];
+        this.say(phrases[Math.floor(Math.random() * phrases.length)], 'fragment');
+        
+        // Penalidade
+        this.happiness = Math.max(0, this.happiness - 8);
+        this.energy = Math.max(0, this.energy - 15);
+    }
+    
+    /**
+     * INCENDIAR - Pet pega fogo
+     */
+    ignite() {
+        if (this.isOnFire || this.isDead || this.isCollapsing) return;
+        
+        // Água apaga fogo instantaneamente
+        if (this.isWet) {
+            this.say("a água me protegeu! 💧", 'saved');
+            return;
+        }
+        
+        this.isOnFire = true;
+        this.fireIntensity = 1.0;
+        this.fireDuration = 6; // 6 segundos em chamas
+        this.fireParticles = [];
+        this.fireDamageTimer = 0;
+        
+        // Expressão de pânico
+        this.setAction('shocked', 6000);
+        
+        // Diálogo
+        const phrases = [
+            "ESTOU PEGANDO FOGO! 🔥",
+            "SOCORRO! FOGO!",
+            "QUEIMANDO! ÁGUA!",
+            "ME APAGA! AHHH!",
+            "NÃO AGUENTO O CALOR!"
+        ];
+        this.say(phrases[Math.floor(Math.random() * phrases.length)], 'fire');
+        
+        // Registra maus tratos
+        this.registerMistreatment();
+    }
+    
+    /**
+     * APAGAR FOGO
+     */
+    extinguish() {
+        if (!this.isOnFire) return;
+        
+        this.isOnFire = false;
+        this.fireIntensity = 0;
+        this.fireDuration = 0;
+        this.fireParticles = [];
+        
+        // Aliviado
+        this.say("ufa... apagou! 😮‍💨", 'relief');
+    }
+    
+    /**
+     * DAR BANHO / MOLHAR - Pet fica molhado
+     */
+    wash() {
+        if (this.isDead || this.isCollapsing) return;
+        
+        // Apaga fogo se estiver pegando
+        if (this.isOnFire) {
+            this.extinguish();
+            this.say("a água salvou minha vida! 💙", 'saved');
+            this.happiness = Math.min(100, this.happiness + 15);
+            return;
+        }
+        
+        this.isWet = true;
+        this.wetDuration = 8; // 8 segundos molhado
+        this.waterDroplets = [];
+        this.splashParticles = [];
+        
+        // Gera gotas d'água
+        for (let i = 0; i < 20; i++) {
+            this.splashParticles.push({
+                x: this.x + (Math.random() - 0.5) * 30,
+                y: this.y - 20 + Math.random() * 20,
+                vx: (Math.random() - 0.5) * 5,
+                vy: -5 - Math.random() * 5,
+                life: 1.0,
+                size: 2 + Math.random() * 3
+            });
+        }
+        
+        // Squash de splash
+        this.squash(1.2, 0.8);
+        
+        // Diálogo
+        const phrases = [
+            "que banho gostoso! 🚿",
+            "me refrescando!",
+            "adorei a água!",
+            "tô limpinho agora!",
+            "bom demais! 💧"
+        ];
+        this.say(phrases[Math.floor(Math.random() * phrases.length)], 'wash');
+        
+        // Benefícios
+        this.happiness = Math.min(100, this.happiness + 12);
+        this.energy = Math.min(100, this.energy + 8);
+    }
+    
+    /**
+     * CORTAR AO MEIO - Pet é cortado por uma espada
+     */
+    slice() {
+        if (this.isSliced || this.isDead || this.isCollapsing) return;
+        
+        this.isSliced = true;
+        this.sliceDuration = 4; // 4 segundos cortado
+        this.sliceOffset = 0;
+        this.sliceAngle = Math.random() * Math.PI; // Ângulo aleatório do corte
+        this.sliceParticles = [];
+        
+        // Partículas do corte
+        for (let i = 0; i < 15; i++) {
+            const perpAngle = this.sliceAngle + Math.PI / 2;
+            this.sliceParticles.push({
+                x: this.x,
+                y: this.y,
+                vx: Math.cos(perpAngle) * (Math.random() - 0.5) * 8,
+                vy: Math.sin(perpAngle) * (Math.random() - 0.5) * 8 - Math.random() * 3,
+                life: 1.0,
+                size: 2 + Math.random() * 2
+            });
+        }
+        
+        // Squash extremo
+        this.squash(1.5, 0.5);
+        
+        // Expressão de choque
+        this.setAction('shocked', 4000);
+        
+        // Diálogo
+        const phrases = [
+            "ME CORTARAM! 😱",
+            "ESTOU EM PEDAÇOS!",
+            "AI! A ESPADA!",
+            "METADE DE MIM!",
+            "ISSO DOI MUITO!"
+        ];
+        this.say(phrases[Math.floor(Math.random() * phrases.length)], 'slice');
+        
+        // Penalidades sérias
+        this.happiness = Math.max(0, this.happiness - 20);
+        this.energy = Math.max(0, this.energy - 15);
+        this.registerMistreatment();
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // SERIALIZAÇÃO
     // ═══════════════════════════════════════════════════════════════════

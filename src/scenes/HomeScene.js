@@ -793,9 +793,11 @@ export default class HomeScene {
             </div>
             
             <div class="home-actions">
+                <span class="wellness-label">💚 BEM-ESTAR</span>
                 <button id="feed-btn" class="action-btn positive">🍎 Alimentar</button>
-                <button id="tickle-btn" class="action-btn positive">🪶 Cócegas</button>
                 <button id="heal-btn" class="action-btn positive">💚 Curar</button>
+                <button id="tickle-btn" class="action-btn positive">🪶 Cócegas</button>
+                <button id="wash-btn" class="action-btn positive">💧 Banho</button>
             </div>
             
             <div class="home-actions-chaos">
@@ -803,6 +805,17 @@ export default class HomeScene {
                 <button id="shock-btn" class="action-btn danger">⚡ Choque</button>
                 <button id="freeze-btn" class="action-btn danger">❄️ Congelar</button>
                 <button id="mutate-btn" class="action-btn danger">🔮 Mutar</button>
+                <button id="ignite-btn" class="action-btn danger">🔥 Fogo</button>
+                <button id="fragment-btn" class="action-btn danger">🧬 Fragmentar</button>
+                <button id="slice-btn" class="action-btn danger">⚔️ Cortar</button>
+            </div>
+            
+            <div class="home-actions-special">
+                <span class="special-label">✨ ESPECIAIS</span>
+                <button id="fragment-btn" class="action-btn special">🧬 Fragmentar</button>
+                <button id="ignite-btn" class="action-btn special">🔥 Fogo</button>
+                <button id="wash-btn" class="action-btn special">💧 Água</button>
+                <button id="slice-btn" class="action-btn special">⚔️ Cortar</button>
             </div>
             
             <div class="home-actions-secondary">
@@ -846,6 +859,23 @@ export default class HomeScene {
         const mutateBtn = document.getElementById('mutate-btn');
         mutateBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
         mutateBtn.addEventListener('click', () => this.mutatePet());
+        
+        // Bind events - Ações especiais
+        const fragmentBtn = document.getElementById('fragment-btn');
+        fragmentBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        fragmentBtn.addEventListener('click', () => this.fragmentPet());
+        
+        const igniteBtn = document.getElementById('ignite-btn');
+        igniteBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        igniteBtn.addEventListener('click', () => this.ignitePet());
+        
+        const washBtn = document.getElementById('wash-btn');
+        washBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        washBtn.addEventListener('click', () => this.washPet());
+        
+        const sliceBtn = document.getElementById('slice-btn');
+        sliceBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
+        sliceBtn.addEventListener('click', () => this.slicePet());
         
         const editBtn = document.getElementById('edit-btn');
         editBtn.addEventListener('mouseenter', () => UISoundSystem.playHover());
@@ -1519,6 +1549,107 @@ export default class HomeScene {
         
         // Efeito visual via CSS
         this.addScreenEffect('mutate');
+    }
+    
+    /**
+     * Fragmenta o pet (mitose)
+     */
+    fragmentPet() {
+        // Som especial
+        UISoundSystem.playMutate(); // Usa mutate como base
+        
+        // Aplica fragmentação
+        this.pet.fragment();
+        
+        // Registra no histórico
+        InteractionHistorySystem.record(INTERACTION_TYPES.MUTATE, {
+            mood: this.pet.expressionState.mood,
+            action: 'fragment',
+            hunger: this.pet.hunger,
+            happiness: this.pet.happiness,
+            energy: this.pet.energy
+        });
+        
+        this.showHint('🧬 Pet fragmentado em mitose!');
+        this.updateAllBars();
+        
+        // Efeito visual
+        this.addScreenEffect('mutate');
+    }
+    
+    /**
+     * Coloca fogo no pet
+     */
+    ignitePet() {
+        // Som de fogo
+        UISoundSystem.playShock(); // Usa shock como base
+        
+        // Coloca fogo
+        this.pet.ignite();
+        
+        // Registra no histórico
+        InteractionHistorySystem.record(INTERACTION_TYPES.SHOCK, {
+            mood: this.pet.expressionState.mood,
+            action: 'ignite',
+            hunger: this.pet.hunger,
+            happiness: this.pet.happiness,
+            energy: this.pet.energy
+        });
+        
+        this.showHint('🔥 Pet pegando fogo!');
+        this.updateAllBars();
+        
+        // Efeito visual
+        this.addScreenEffect('shock');
+    }
+    
+    /**
+     * Dá banho no pet
+     */
+    washPet() {
+        // Som de água
+        UISoundSystem.playClick('special');
+        
+        // Dá banho
+        this.pet.wash();
+        
+        // Registra no histórico
+        InteractionHistorySystem.record(INTERACTION_TYPES.TICKLE, {
+            mood: this.pet.expressionState.mood,
+            action: 'wash',
+            hunger: this.pet.hunger,
+            happiness: this.pet.happiness,
+            energy: this.pet.energy
+        });
+        
+        this.showHint('💧 Pet recebendo banho refrescante!');
+        this.updateAllBars();
+    }
+    
+    /**
+     * Corta o pet ao meio
+     */
+    slicePet() {
+        // Som de corte
+        UISoundSystem.playShock();
+        
+        // Corta
+        this.pet.slice();
+        
+        // Registra no histórico
+        InteractionHistorySystem.record(INTERACTION_TYPES.SHOCK, {
+            mood: this.pet.expressionState.mood,
+            action: 'slice',
+            hunger: this.pet.hunger,
+            happiness: this.pet.happiness,
+            energy: this.pet.energy
+        });
+        
+        this.showHint('⚔️ Pet cortado ao meio!');
+        this.updateAllBars();
+        
+        // Efeito visual
+        this.addScreenEffect('shock');
     }
     
     /**
