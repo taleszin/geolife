@@ -79,10 +79,11 @@ export default class HomeScene {
         // ═══════════════════════════════════════════════════════════════════
         this.isGrabbing = false;                  // Está segurando o pet?
         this.wasGrabbing = false;                 // Estava segurando (para ignorar click)
+        this.clickedOnPet = false;                // Clicou no pet (para ignorar onClick)
         this.grabStartTime = 0;                   // Tempo que começou a segurar
         this.grabHoldThreshold = 150;             // Ms para considerar "hold" vs "click"
         this.grabPositions = [];                  // Histórico de posições para calcular velocidade
-        this.maxGrabPositions = 5;                // Quantas posições guardar
+        this.maxGrabPositions = 10;               // Quantas posições guardar (aumentado)
         this.lastGrabPos = { x: 0, y: 0 };        // Última posição do cursor
     }
     
@@ -191,15 +192,12 @@ export default class HomeScene {
         
         this.renderer = new Renderer(this.canvas);
         
-        // Eventos
-        this.canvas.addEventListener('click', (e) => this.onClick(e));
-        this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
-        
         // ═══ SISTEMA DE SEGURAR E ARREMESSAR (Mouse) ═══
         this.canvas.addEventListener('mousedown', (e) => this.onGrabStart(e));
-        this.canvas.addEventListener('mousemove', (e) => this.onGrabMove(e));
+        this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.onGrabEnd(e));
         this.canvas.addEventListener('mouseleave', (e) => this.onGrabEnd(e));
+        this.canvas.addEventListener('click', (e) => this.onClick(e));
         
         // Touch events para mobile
         this.canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
@@ -592,18 +590,28 @@ export default class HomeScene {
         
         // Verifica se clicou no pet
         if (this.isPetAtPosition(pos.x, pos.y)) {
+            e.preventDefault(); // Previne o click padrão
+            this.clickedOnPet = true; // Marca que clicou no pet
             this.startGrabbing(pos.x, pos.y);
+        } else {
+            this.clickedOnPet = false;
         }
     }
     
     /**
-     * Mouse move - atualiza grab
+     * Mouse move - atualiza grab ou eye tracking
      */
-    onGrabMove(e) {
+    onMouseMove(e) {
         const pos = this.getMousePosition(e);
         
-        if (this.isGrabbing && this.pet.isHeld) {
+        if (this.isGrabbing && this.pet && this.pet.isHeld) {
+            // Se está segurando, atualiza posição do pet
             this.updateGrabbing(pos.x, pos.y);
+        } else {
+            // Caso contrário, pet olha para o mouse
+            if (this.pet) {
+                this.pet.lookAt(pos.x, pos.y);
+            }
         }
     }
     
@@ -612,6 +620,11 @@ export default class HomeScene {
      */
     onGrabEnd(e) {
         if (this.isGrabbing) {
+            // Captura a última posição antes de soltar
+            if (e.type !== 'mouseleave') {
+                const pos = this.getMousePosition(e);
+                this.grabPositions.push({ x: pos.x, y: pos.y, time: Date.now() });
+            }
             this.endGrabbing();
         }
     }
@@ -624,8 +637,8 @@ export default class HomeScene {
         
         const ageScale = this.pet.getAgeScale ? this.pet.getAgeScale() : 1;
         const baseRadius = this.pet.size * (this.pet.scale || 1) * ageScale;
-        // Garante um raio mínimo para pets pequenos (bebês)
-        const petRadius = Math.max(baseRadius * 1.5, 30);
+        // Garante um raio mínimo generoso para pets pequenos (bebês/adolescentes)
+        const petRadius = Math.max(baseRadius * 2, 50);
         
         const dx = x - this.pet.x;
         const dy = y - this.pet.y;
@@ -685,7 +698,20 @@ export default class HomeScene {
         const holdDuration = Date.now() - this.grabStartTime;
         
         // Calcula velocidade de arremesso baseada no histórico de posições
-        const velocity = this.calculateThrowVelocity();
+        let velocity = this.calculateThrowVelocity();
+        
+        // Se não detectou movimento mas houve distância percorrida, usa fallback
+        if (velocity.x === 0 && velocity.y === 0 && this.grabPositions.length >= 2) {
+            const first = this.grabPositions[0];
+            const last = this.grabPositions[this.grabPositions.length - 1];
+            const dist = Math.sqrt(Math.pow(last.x - first.x, 2) + Math.pow(last.y - first.y, 2));
+            if (dist > 10) {
+                // Usa distância como indicador de força
+                const angle = Math.atan2(last.y - first.y, last.x - first.x);
+                const speed = Math.min(dist * 0.5, 20);
+                velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+            }
+        }
         
         // Solta o pet com a velocidade calculada
         if (this.pet.isHeld) {
@@ -693,7 +719,7 @@ export default class HomeScene {
             
             // Feedback sonoro
             const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-            if (speed > 5) {
+            if (speed > 2) {
                 UISoundSystem.playShock(); // Som de arremesso
             }
         }
@@ -711,17 +737,17 @@ export default class HomeScene {
             return { x: 0, y: 0 };
         }
         
-        // Pega as últimas posições
-        const recent = this.grabPositions.slice(-3);
+        // Pega as últimas posições (mais recentes = mais peso)
+        const recent = this.grabPositions.slice(-5);
         const first = recent[0];
         const last = recent[recent.length - 1];
         
         const dt = (last.time - first.time) / 1000; // em segundos
-        if (dt < 0.01) return { x: 0, y: 0 }; // Evita divisão por zero
+        if (dt < 0.001) return { x: 0, y: 0 }; // Evita divisão por zero
         
-        // Calcula velocidade
-        const vx = (last.x - first.x) / dt * 0.15; // Fator de escala
-        const vy = (last.y - first.y) / dt * 0.15;
+        // Calcula velocidade (fator maior = arremesso mais forte)
+        const vx = (last.x - first.x) / dt * 0.5;
+        const vy = (last.y - first.y) / dt * 0.5;
         
         return { x: vx, y: vy };
     }
@@ -1336,20 +1362,16 @@ export default class HomeScene {
     // ═══════════════════════════════════════════════════════════════════
     
     onClick(e) {
-        // Se estava segurando o pet, não processa click normal
-        if (this.isGrabbing || this.wasGrabbing) {
+        // Se estava segurando o pet OU se clicou no pet, não processa click normal
+        if (this.wasGrabbing || this.clickedOnPet) {
             this.wasGrabbing = false;
+            this.clickedOnPet = false;
             return;
         }
         
         const pos = this.getMousePosition(e);
         const x = pos.x;
         const y = pos.y;
-        
-        // Se clicou no pet, não move (grab system cuida disso)
-        if (this.isPetAtPosition(x, y)) {
-            return;
-        }
         
         // Verifica se clicou dentro do quarto
         if (this.isInsideRoom(x, y)) {
@@ -1363,13 +1385,6 @@ export default class HomeScene {
             this.pet.moveTo(x, y);
             this.showHint('Seu GeoPet está se movendo!');
         }
-    }
-
-    onMouseMove(e) {
-        const pos = this.getMousePosition(e);
-        
-        // Pet olha para o mouse
-        this.pet.lookAt(pos.x, pos.y);
     }
 
     isInsideRoom(x, y) {

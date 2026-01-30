@@ -178,10 +178,10 @@ export default class GeoPet {
         this.dizzyTime = 0;                  // Tempo restante de zonzeira
         this.dizzyStars = [];                // Partículas de "estrelinhas"
         
-        // Física melhorada
-        this.gravity = 0.3;                  // Gravidade para arremesso
-        this.bounciness = 0.7;               // Elasticidade nas colisões
-        this.airFriction = 0.99;             // Fricção no ar
+        // Física melhorada (estilo Pou - bouncy!)
+        this.gravity = 0.4;                  // Gravidade para arremesso
+        this.bounciness = 0.85;              // Elasticidade alta nas colisões
+        this.airFriction = 0.985;            // Fricção reduzida no ar
         
         // ═══════════════════════════════════════════════════════════════════
         // SISTEMA DE FALAS (Typewriter Effect)
@@ -1365,14 +1365,14 @@ export default class GeoPet {
         // Calcula magnitude da velocidade
         const speed = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
         
-        // Se velocidade alta = arremesso!
-        if (speed > 5) {
+        // Se velocidade alta = arremesso! (threshold reduzido)
+        if (speed > 2) {
             this.isThrown = true;
             this.thrownTime = 0;
             this.bounceCount = 0;
             
             // Limita velocidade máxima mas mantém direção
-            const maxThrowSpeed = 25;
+            const maxThrowSpeed = 35;
             const clampedSpeed = Math.min(speed, maxThrowSpeed);
             const ratio = clampedSpeed / speed;
             
@@ -1475,8 +1475,8 @@ export default class GeoPet {
             this.lastBounceTime = Date.now();
         }
         
-        // Verifica se parou
-        if (speed < 0.5 && Math.abs(this.vy) < 0.5) {
+        // Verifica se parou (threshold menor = mais bounces)
+        if (speed < 0.3 && Math.abs(this.vy) < 0.3) {
             this.stopThrow();
         }
         
