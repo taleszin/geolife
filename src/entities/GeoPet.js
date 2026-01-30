@@ -158,6 +158,32 @@ export default class GeoPet {
         this.feedCooldown = 0;
         
         // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE SEGURAR E ARREMESSAR (Grab & Throw)
+        // ═══════════════════════════════════════════════════════════════════
+        this.isHeld = false;                 // Está sendo segurado?
+        this.heldTime = 0;                   // Tempo segurado (segundos)
+        this.lastHeldDialogue = 0;           // Timer para falas quando segurado
+        this.heldDialogueInterval = 2000;    // Intervalo entre falas de desconforto
+        
+        // Física de arremesso
+        this.throwVelocityX = 0;             // Velocidade X ao ser solto
+        this.throwVelocityY = 0;             // Velocidade Y ao ser solto
+        this.isThrown = false;               // Foi arremessado?
+        this.thrownTime = 0;                 // Tempo desde arremesso
+        this.bounceCount = 0;                // Quantas vezes rebateu
+        this.lastBounceTime = 0;             // Timer para evitar bounces repetidos
+        
+        // Estado zonzo (após colisão)
+        this.isDizzy = false;                // Está zonzo?
+        this.dizzyTime = 0;                  // Tempo restante de zonzeira
+        this.dizzyStars = [];                // Partículas de "estrelinhas"
+        
+        // Física melhorada
+        this.gravity = 0.3;                  // Gravidade para arremesso
+        this.bounciness = 0.7;               // Elasticidade nas colisões
+        this.airFriction = 0.99;             // Fricção no ar
+        
+        // ═══════════════════════════════════════════════════════════════════
         // SISTEMA DE FALAS (Typewriter Effect)
         // ═══════════════════════════════════════════════════════════════════
         this.currentDialogue = null;      // Texto completo
@@ -499,8 +525,20 @@ export default class GeoPet {
         // Atualiza animações
         this.updateAnimations(dt);
         
+        // ═══ SISTEMA DE SEGURAR E ARREMESSAR ═══
+        // Atualiza estado de segurado
+        if (this.isHeld) {
+            this.updateHeldState(dt);
+        }
+        
+        // Atualiza estado zonzo
+        if (this.isDizzy) {
+            this.updateDizzyState(dt);
+        }
+        
         // Atualiza movimento (com fator errático de infante) - mais lento se instável
-        if (!this.isCollapsing) {
+        // Não move se está sendo segurado ou se está em arremesso (física própria)
+        if (!this.isCollapsing && !this.isHeld && !this.isThrown) {
             this.updateMovement(dt);
         }
         
@@ -953,12 +991,28 @@ export default class GeoPet {
                 'love': '💕 Amado',
                 'surprised': '😮 Surpreso',
                 'alert': '👀 Alerta',
-                'healed': '💚 Curado'
+                'healed': '💚 Curado',
+                // Estados de segurar e arremessar
+                'held': '😰 Preso!',
+                'held_angry': '😠 Irritado!',
+                'thrown': '😱 Voando!',
+                'bounce': '💥 Ouch!',
+                'dizzy': '😵 Zonzo'
             };
             return actionLabels[this.expressionState.action] || MOOD_LABELS[this.currentMood];
         }
         
         return MOOD_LABELS[this.currentMood] || '😐 Neutro';
+    }
+    
+    /**
+     * Define uma ação temporária que sobrepõe o mood
+     * @param {string} action - Nome da ação
+     * @param {number} duration - Duração em ms
+     */
+    setAction(action, duration = 1000) {
+        this.expressionState.action = action;
+        this.expressionState.actionTimer = Date.now() + duration;
     }
     
     /**
@@ -1047,6 +1101,64 @@ export default class GeoPet {
             case 'alert':
                 target = { open: 1.2, curve: 0.2, brow: -0.1, pupil: 0.9, tremor: 0 };
                 break;
+            // ═══ ESTADOS DE SEGURAR E ARREMESSAR ═══
+            case 'held':
+                // Olhos arregalados de surpresa/desconforto, boca de desaprovação
+                const heldWiggle = Math.sin(Date.now() * 0.015);
+                target = { 
+                    open: 1.1 + heldWiggle * 0.1, 
+                    curve: -0.4 + heldWiggle * 0.1, 
+                    brow: 0.5, 
+                    pupil: 0.8, 
+                    tremor: 0.2 + Math.abs(heldWiggle) * 0.2
+                };
+                break;
+            case 'held_angry':
+                // Muito tempo segurado = irritado!
+                const angryWiggle = Math.sin(Date.now() * 0.025);
+                target = { 
+                    open: 0.7, 
+                    curve: -0.7 + angryWiggle * 0.1, 
+                    brow: 0.8, 
+                    pupil: 0.6, 
+                    tremor: 0.4
+                };
+                break;
+            case 'thrown':
+                // Olhos bem abertos de susto durante voo!
+                const flyPhase = Math.sin(Date.now() * 0.03);
+                target = { 
+                    open: 1.4, 
+                    curve: flyPhase * 0.5, 
+                    brow: 0.3 + flyPhase * 0.3, 
+                    pupil: 0.5, 
+                    tremor: 0.6
+                };
+                break;
+            case 'dizzy':
+                // Olhos rodando, boca tonta
+                const dizzyPhase = Date.now() * 0.01;
+                const spiralX = Math.sin(dizzyPhase) * 0.3;
+                const spiralY = Math.cos(dizzyPhase) * 0.3;
+                this.faceParams.focusOffset = { x: spiralX * 10, y: spiralY * 10 };
+                target = { 
+                    open: 0.6 + Math.sin(dizzyPhase * 2) * 0.2, 
+                    curve: Math.sin(dizzyPhase * 0.5) * 0.3, 
+                    brow: Math.sin(dizzyPhase) * 0.3, 
+                    pupil: 0.7 + Math.sin(dizzyPhase * 3) * 0.2, 
+                    tremor: 0.3
+                };
+                break;
+            case 'bounce':
+                // Impacto! Olhos apertados de dor
+                target = { 
+                    open: 0.2, 
+                    curve: -0.6, 
+                    brow: 0.7, 
+                    pupil: 0.5, 
+                    tremor: 1.0
+                };
+                break;
         }
         
         // Interpolação suave (Lerp)
@@ -1123,6 +1235,405 @@ export default class GeoPet {
         // Para se velocidade muito baixa
         if (Math.abs(this.vx) < 0.01) this.vx = 0;
         if (Math.abs(this.vy) < 0.01) this.vy = 0;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // SISTEMA DE SEGURAR E ARREMESSAR (Grab & Throw)
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Chamado quando o jogador começa a segurar o pet
+     */
+    startHold() {
+        if (this.isDead || this.isCollapsing) return;
+        
+        this.isHeld = true;
+        this.heldTime = 0;
+        this.lastHeldDialogue = 0;
+        this.isThrown = false;
+        this.isDizzy = false;
+        
+        // Para movimento
+        this.vx = 0;
+        this.vy = 0;
+        this.targetX = null;
+        this.targetY = null;
+        
+        // Expressão de surpresa inicial
+        this.setAction('held', 500);
+        
+        // Squash inicial (comprime um pouco)
+        this.squash(1.1, 0.9);
+    }
+    
+    /**
+     * Chamado durante o hold para atualizar posição
+     */
+    updateHold(x, y) {
+        if (!this.isHeld) return;
+        
+        // Move para posição do cursor com pequeno offset oscilante
+        const wobble = Math.sin(Date.now() * 0.01) * 2;
+        this.x = x + wobble;
+        this.y = y + Math.sin(Date.now() * 0.015) * 3;
+    }
+    
+    /**
+     * Atualiza estado enquanto segurado
+     */
+    updateHeldState(dt) {
+        if (!this.isHeld) return;
+        
+        this.heldTime += dt;
+        
+        // Muda expressão baseado no tempo segurado
+        if (this.heldTime < 1.5) {
+            this.setAction('held', 200);
+        } else if (this.heldTime < 4) {
+            this.setAction('held_angry', 200);
+        } else {
+            // Muito tempo segurado = cada vez mais irritado
+            this.setAction('held_angry', 200);
+            // Reduz felicidade
+            this.happiness = Math.max(0, this.happiness - dt * 5);
+        }
+        
+        // Falas de desconforto
+        const now = Date.now();
+        if (now - this.lastHeldDialogue > this.heldDialogueInterval) {
+            this.sayHeldDialogue();
+            this.lastHeldDialogue = now;
+        }
+    }
+    
+    /**
+     * Fala algo sobre estar sendo segurado
+     */
+    sayHeldDialogue() {
+        const shortHeldPhrases = [
+            "ei!",
+            "opa!",
+            "hã?!",
+            "o quê?",
+            "aaah!"
+        ];
+        
+        const mediumHeldPhrases = [
+            "me larga!",
+            "não gosto disso...",
+            "para com isso!",
+            "me solta!",
+            "tá me apertando!",
+            "desconfortável...",
+            "ei, cuidado!"
+        ];
+        
+        const longHeldPhrases = [
+            "ME SOLTA AGORA!",
+            "NÃO AGUENTO MAIS!",
+            "por favor... me solta",
+            "estou ficando tonto...",
+            "isso é maldade!",
+            "vou lembrar disso...",
+            "você é cruel! 😤"
+        ];
+        
+        let phrases;
+        if (this.heldTime < 1.5) {
+            phrases = shortHeldPhrases;
+        } else if (this.heldTime < 4) {
+            phrases = mediumHeldPhrases;
+        } else {
+            phrases = longHeldPhrases;
+        }
+        
+        const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+        this.say(phrase, 'held');
+    }
+    
+    /**
+     * Chamado quando o jogador solta o pet (arremesso!)
+     * @param {number} velocityX - Velocidade X do arremesso
+     * @param {number} velocityY - Velocidade Y do arremesso
+     */
+    release(velocityX, velocityY) {
+        if (!this.isHeld) return;
+        
+        this.isHeld = false;
+        this.heldTime = 0;
+        
+        // Calcula magnitude da velocidade
+        const speed = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
+        
+        // Se velocidade alta = arremesso!
+        if (speed > 5) {
+            this.isThrown = true;
+            this.thrownTime = 0;
+            this.bounceCount = 0;
+            
+            // Limita velocidade máxima mas mantém direção
+            const maxThrowSpeed = 25;
+            const clampedSpeed = Math.min(speed, maxThrowSpeed);
+            const ratio = clampedSpeed / speed;
+            
+            this.vx = velocityX * ratio;
+            this.vy = velocityY * ratio;
+            
+            // Expressão de susto durante voo
+            this.setAction('thrown', 1000);
+            
+            // Squash na direção do arremesso
+            const angle = Math.atan2(velocityY, velocityX);
+            this.squash(1.3, 0.7);
+            this.rotation = angle;
+            
+            // Fala de arremesso
+            this.sayThrownDialogue();
+            
+            // Perde um pouco de felicidade
+            this.happiness = Math.max(0, this.happiness - 10);
+        } else {
+            // Solto suavemente
+            this.vx = velocityX * 0.3;
+            this.vy = velocityY * 0.3;
+            
+            // Fala de alívio
+            const reliefPhrases = ["ufa!", "finalmente!", "obrigado...", "aaah, chão!"];
+            this.say(reliefPhrases[Math.floor(Math.random() * reliefPhrases.length)], 'relief');
+        }
+    }
+    
+    /**
+     * Fala algo durante arremesso
+     */
+    sayThrownDialogue() {
+        const thrownPhrases = [
+            "AAAAAAH!",
+            "SOCORRO!",
+            "NÃO NÃO NÃO!",
+            "WHEEEEE!",
+            "🌀🌀🌀",
+            "EU VOU MORRER!",
+            "MAMÃE!"
+        ];
+        const phrase = thrownPhrases[Math.floor(Math.random() * thrownPhrases.length)];
+        this.say(phrase, 'thrown');
+    }
+    
+    /**
+     * Atualiza física de arremesso
+     */
+    updateThrowPhysics(dt, bounds) {
+        if (!this.isThrown) return;
+        
+        this.thrownTime += dt;
+        
+        // Aplica gravidade
+        this.vy += this.gravity;
+        
+        // Aplica velocidade
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // Fricção do ar
+        this.vx *= this.airFriction;
+        this.vy *= this.airFriction;
+        
+        // Rotação durante voo
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        this.rotation += speed * 0.02 * (this.vx > 0 ? 1 : -1);
+        
+        // Verifica colisões com bounds
+        const radius = this.size * this.scale * this.getAgeScale() * 0.5;
+        let bounced = false;
+        
+        // Colisão com paredes laterais
+        if (this.x - radius < bounds.x) {
+            this.x = bounds.x + radius;
+            this.vx = -this.vx * this.bounciness;
+            bounced = true;
+        } else if (this.x + radius > bounds.x + bounds.width) {
+            this.x = bounds.x + bounds.width - radius;
+            this.vx = -this.vx * this.bounciness;
+            bounced = true;
+        }
+        
+        // Colisão com teto e chão
+        if (this.y - radius < bounds.y) {
+            this.y = bounds.y + radius;
+            this.vy = -this.vy * this.bounciness;
+            bounced = true;
+        } else if (this.y + radius > bounds.y + bounds.height) {
+            this.y = bounds.y + bounds.height - radius;
+            this.vy = -this.vy * this.bounciness;
+            bounced = true;
+        }
+        
+        // Se rebateu
+        if (bounced && Date.now() - this.lastBounceTime > 100) {
+            this.onBounce();
+            this.lastBounceTime = Date.now();
+        }
+        
+        // Verifica se parou
+        if (speed < 0.5 && Math.abs(this.vy) < 0.5) {
+            this.stopThrow();
+        }
+        
+        // Timeout de segurança
+        if (this.thrownTime > 10) {
+            this.stopThrow();
+        }
+    }
+    
+    /**
+     * Chamado quando rebate em uma parede
+     */
+    onBounce() {
+        this.bounceCount++;
+        
+        // Squash no impacto
+        this.squash(1.4, 0.6);
+        
+        // Expressão de impacto
+        this.setAction('bounce', 300);
+        
+        // Fala de dor
+        if (this.bounceCount <= 3) {
+            const bouncePhrases = ["AI!", "OOF!", "OUCH!", "ARGH!", "💫"];
+            this.say(bouncePhrases[Math.floor(Math.random() * bouncePhrases.length)], 'bounce');
+        }
+        
+        // Perde felicidade a cada bounce
+        this.happiness = Math.max(0, this.happiness - 5);
+        
+        // Se rebateu muito, fica zonzo
+        if (this.bounceCount >= 3) {
+            this.startDizzy();
+        }
+    }
+    
+    /**
+     * Para o estado de arremesso
+     */
+    stopThrow() {
+        this.isThrown = false;
+        this.vx = 0;
+        this.vy = 0;
+        this.rotation = 0;
+        
+        // Se rebateu muito, fica zonzo
+        if (this.bounceCount >= 2) {
+            this.startDizzy();
+        } else {
+            // Recupera
+            const recoverPhrases = ["nunca mais...", "ai minha cabeça...", "isso foi horrível", "por que?!"];
+            this.say(recoverPhrases[Math.floor(Math.random() * recoverPhrases.length)], 'recover');
+        }
+    }
+    
+    /**
+     * Inicia estado zonzo
+     */
+    startDizzy() {
+        this.isDizzy = true;
+        this.dizzyTime = 3 + this.bounceCount * 0.5; // Mais bounces = mais tempo zonzo
+        
+        // Gera estrelinhas
+        this.generateDizzyStars();
+        
+        // Expressão zonza
+        this.setAction('dizzy', this.dizzyTime * 1000);
+        
+        // Fala zonza
+        const dizzyPhrases = [
+            "tudo rodando...",
+            "vejo estrelas...",
+            "🌀 tontura 🌀",
+            "onde estou?",
+            "mãe... é você?",
+            "quantos dedos?",
+            "não me sinto bem..."
+        ];
+        this.say(dizzyPhrases[Math.floor(Math.random() * dizzyPhrases.length)], 'dizzy');
+    }
+    
+    /**
+     * Gera partículas de estrelinhas de tontura
+     */
+    generateDizzyStars() {
+        this.dizzyStars = [];
+        const numStars = 5 + Math.floor(this.bounceCount);
+        
+        for (let i = 0; i < numStars; i++) {
+            this.dizzyStars.push({
+                angle: (i / numStars) * Math.PI * 2,
+                distance: 25 + Math.random() * 15,
+                size: 3 + Math.random() * 3,
+                speed: 2 + Math.random() * 1,
+                color: Math.random() > 0.5 ? '#ffff00' : '#ffffff'
+            });
+        }
+    }
+    
+    /**
+     * Atualiza estado zonzo
+     */
+    updateDizzyState(dt) {
+        if (!this.isDizzy) return;
+        
+        this.dizzyTime -= dt;
+        
+        // Atualiza estrelinhas
+        for (const star of this.dizzyStars) {
+            star.angle += star.speed * dt;
+        }
+        
+        // Movimento errático enquanto zonzo
+        this.vx += (Math.random() - 0.5) * 0.5;
+        this.vy += (Math.random() - 0.5) * 0.5;
+        this.vx *= 0.95;
+        this.vy *= 0.95;
+        
+        // Termina zonzeira
+        if (this.dizzyTime <= 0) {
+            this.isDizzy = false;
+            this.dizzyStars = [];
+            this.bounceCount = 0;
+            
+            // Recuperação final
+            const recoverPhrases = ["uff... melhorou", "nunca mais faça isso", "preciso sentar...", "🤢"];
+            this.say(recoverPhrases[Math.floor(Math.random() * recoverPhrases.length)], 'recover');
+        }
+    }
+    
+    /**
+     * Renderiza estrelinhas de tontura
+     */
+    renderDizzyStars(renderer) {
+        if (!this.isDizzy || this.dizzyStars.length === 0) return;
+        
+        const ageScale = this.getAgeScale();
+        
+        for (const star of this.dizzyStars) {
+            const x = this.x + Math.cos(star.angle) * star.distance * ageScale;
+            const y = this.y - this.size * ageScale * 0.3 + Math.sin(star.angle) * star.distance * 0.5 * ageScale;
+            
+            // Desenha estrela de 4 pontas
+            const { r, g, b } = renderer.hexToRgb(star.color);
+            const alpha = 200 + Math.sin(Date.now() * 0.01 + star.angle) * 55;
+            
+            // Centro
+            renderer.setPixel(Math.round(x), Math.round(y), r, g, b, alpha);
+            
+            // Pontas
+            for (let i = 0; i < 4; i++) {
+                const pAngle = (i / 4) * Math.PI * 2 + Date.now() * 0.005;
+                const px = x + Math.cos(pAngle) * star.size;
+                const py = y + Math.sin(pAngle) * star.size;
+                renderer.setPixel(Math.round(px), Math.round(py), r, g, b, alpha * 0.7);
+            }
+        }
     }
     
     updateDialogue(deltaTime) {
@@ -1283,6 +1794,11 @@ export default class GeoPet {
         // 4. Partículas de colapso (por cima de tudo)
         if (this.collapseParticles.length > 0) {
             this.renderCollapseParticles(renderer);
+        }
+        
+        // 5. Estrelinhas de tontura (se zonzo)
+        if (this.isDizzy) {
+            this.renderDizzyStars(renderer);
         }
         
         // Limpa referências temporárias

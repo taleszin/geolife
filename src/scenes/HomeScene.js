@@ -73,6 +73,17 @@ export default class HomeScene {
         this.gameOverProgress = 0;
         this.lastCollapseDialogueTime = 0;
         this.collapseDialogueInterval = 1500; // Falas mais rápidas durante colapso
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // SISTEMA DE SEGURAR E ARREMESSAR (Grab & Throw)
+        // ═══════════════════════════════════════════════════════════════════
+        this.isGrabbing = false;                  // Está segurando o pet?
+        this.wasGrabbing = false;                 // Estava segurando (para ignorar click)
+        this.grabStartTime = 0;                   // Tempo que começou a segurar
+        this.grabHoldThreshold = 150;             // Ms para considerar "hold" vs "click"
+        this.grabPositions = [];                  // Histórico de posições para calcular velocidade
+        this.maxGrabPositions = 5;                // Quantas posições guardar
+        this.lastGrabPos = { x: 0, y: 0 };        // Última posição do cursor
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -184,9 +195,16 @@ export default class HomeScene {
         this.canvas.addEventListener('click', (e) => this.onClick(e));
         this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
         
+        // ═══ SISTEMA DE SEGURAR E ARREMESSAR (Mouse) ═══
+        this.canvas.addEventListener('mousedown', (e) => this.onGrabStart(e));
+        this.canvas.addEventListener('mousemove', (e) => this.onGrabMove(e));
+        this.canvas.addEventListener('mouseup', (e) => this.onGrabEnd(e));
+        this.canvas.addEventListener('mouseleave', (e) => this.onGrabEnd(e));
+        
         // Touch events para mobile
         this.canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
         this.canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+        this.canvas.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
         
         // Resize listener
         this.resizeHandler = () => {
@@ -497,34 +515,215 @@ export default class HomeScene {
     onTouchStart(e) {
         e.preventDefault();
         const touch = e.touches[0];
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        const x = (touch.clientX - rect.left) * scaleX;
-        const y = (touch.clientY - rect.top) * scaleY;
+        const pos = this.getTouchPosition(touch);
         
-        if (this.isInsideRoom(x, y)) {
-            if (this.food && this.isNearFood(x, y)) {
+        // Verifica se tocou no pet
+        if (this.isPetAtPosition(pos.x, pos.y)) {
+            this.startGrabbing(pos.x, pos.y);
+        } else if (this.isInsideRoom(pos.x, pos.y)) {
+            if (this.food && this.isNearFood(pos.x, pos.y)) {
                 this.pet.moveTo(this.food.x, this.food.y);
             } else {
-                this.pet.moveTo(x, y);
+                this.pet.moveTo(pos.x, pos.y);
             }
         }
     }
     
     /**
-     * Touch move handler para eye tracking em mobile
+     * Touch move handler para eye tracking e grab em mobile
      */
     onTouchMove(e) {
         e.preventDefault();
         const touch = e.touches[0];
+        const pos = this.getTouchPosition(touch);
+        
+        if (this.isGrabbing && this.pet.isHeld) {
+            this.updateGrabbing(pos.x, pos.y);
+        } else {
+            this.pet.lookAt(pos.x, pos.y);
+        }
+    }
+    
+    /**
+     * Touch end handler para soltar o pet
+     */
+    onTouchEnd(e) {
+        e.preventDefault();
+        if (this.isGrabbing) {
+            this.endGrabbing();
+        }
+    }
+    
+    /**
+     * Converte posição de touch para coordenadas do canvas
+     */
+    getTouchPosition(touch) {
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
-        const x = (touch.clientX - rect.left) * scaleX;
-        const y = (touch.clientY - rect.top) * scaleY;
+        return {
+            x: (touch.clientX - rect.left) * scaleX,
+            y: (touch.clientY - rect.top) * scaleY
+        };
+    }
+    
+    /**
+     * Converte posição de mouse para coordenadas do canvas
+     */
+    getMousePosition(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // SISTEMA DE SEGURAR E ARREMESSAR (Grab & Throw)
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Mouse down - início do grab
+     */
+    onGrabStart(e) {
+        const pos = this.getMousePosition(e);
         
-        this.pet.lookAt(x, y);
+        // Verifica se clicou no pet
+        if (this.isPetAtPosition(pos.x, pos.y)) {
+            this.startGrabbing(pos.x, pos.y);
+        }
+    }
+    
+    /**
+     * Mouse move - atualiza grab
+     */
+    onGrabMove(e) {
+        const pos = this.getMousePosition(e);
+        
+        if (this.isGrabbing && this.pet.isHeld) {
+            this.updateGrabbing(pos.x, pos.y);
+        }
+    }
+    
+    /**
+     * Mouse up / leave - fim do grab
+     */
+    onGrabEnd(e) {
+        if (this.isGrabbing) {
+            this.endGrabbing();
+        }
+    }
+    
+    /**
+     * Verifica se o pet está na posição
+     */
+    isPetAtPosition(x, y) {
+        if (!this.pet || this.pet.isDead || this.pet.isCollapsing) return false;
+        
+        const ageScale = this.pet.getAgeScale ? this.pet.getAgeScale() : 1;
+        const baseRadius = this.pet.size * (this.pet.scale || 1) * ageScale;
+        // Garante um raio mínimo para pets pequenos (bebês)
+        const petRadius = Math.max(baseRadius * 1.5, 30);
+        
+        const dx = x - this.pet.x;
+        const dy = y - this.pet.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        return dist < petRadius;
+    }
+    
+    /**
+     * Inicia o processo de grab
+     */
+    startGrabbing(x, y) {
+        if (!this.pet || this.pet.isDead || this.pet.isCollapsing) return;
+        
+        this.isGrabbing = true;
+        this.grabStartTime = Date.now();
+        this.grabPositions = [{ x, y, time: Date.now() }];
+        this.lastGrabPos = { x, y };
+        
+        // Inicia hold no pet
+        this.pet.startHold();
+        
+        // Move pet para posição inicial
+        this.pet.updateHold(x, y);
+        
+        // Feedback sonoro
+        UISoundSystem.playClick('special');
+    }
+    
+    /**
+     * Atualiza posição durante grab
+     */
+    updateGrabbing(x, y) {
+        if (!this.isGrabbing || !this.pet || !this.pet.isHeld) return;
+        if (x === undefined || y === undefined) return;
+        
+        const now = Date.now();
+        
+        // Atualiza posição do pet
+        this.pet.updateHold(x, y);
+        
+        // Guarda histórico de posições para calcular velocidade
+        this.grabPositions.push({ x, y, time: now });
+        if (this.grabPositions.length > this.maxGrabPositions) {
+            this.grabPositions.shift();
+        }
+        
+        this.lastGrabPos = { x, y };
+    }
+    
+    /**
+     * Termina o grab (solta ou arremessa)
+     */
+    endGrabbing() {
+        if (!this.isGrabbing || !this.pet) return;
+        
+        const holdDuration = Date.now() - this.grabStartTime;
+        
+        // Calcula velocidade de arremesso baseada no histórico de posições
+        const velocity = this.calculateThrowVelocity();
+        
+        // Solta o pet com a velocidade calculada
+        if (this.pet.isHeld) {
+            this.pet.release(velocity.x, velocity.y);
+            
+            // Feedback sonoro
+            const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+            if (speed > 5) {
+                UISoundSystem.playShock(); // Som de arremesso
+            }
+        }
+        
+        this.wasGrabbing = true; // Marca para ignorar o click que vem junto
+        this.isGrabbing = false;
+        this.grabPositions = [];
+    }
+    
+    /**
+     * Calcula velocidade de arremesso baseada no movimento recente
+     */
+    calculateThrowVelocity() {
+        if (this.grabPositions.length < 2) {
+            return { x: 0, y: 0 };
+        }
+        
+        // Pega as últimas posições
+        const recent = this.grabPositions.slice(-3);
+        const first = recent[0];
+        const last = recent[recent.length - 1];
+        
+        const dt = (last.time - first.time) / 1000; // em segundos
+        if (dt < 0.01) return { x: 0, y: 0 }; // Evita divisão por zero
+        
+        // Calcula velocidade
+        const vx = (last.x - first.x) / dt * 0.15; // Fator de escala
+        const vy = (last.y - first.y) / dt * 0.15;
+        
+        return { x: vx, y: vy };
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -1137,9 +1336,20 @@ export default class HomeScene {
     // ═══════════════════════════════════════════════════════════════════
     
     onClick(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        // Se estava segurando o pet, não processa click normal
+        if (this.isGrabbing || this.wasGrabbing) {
+            this.wasGrabbing = false;
+            return;
+        }
+        
+        const pos = this.getMousePosition(e);
+        const x = pos.x;
+        const y = pos.y;
+        
+        // Se clicou no pet, não move (grab system cuida disso)
+        if (this.isPetAtPosition(x, y)) {
+            return;
+        }
         
         // Verifica se clicou dentro do quarto
         if (this.isInsideRoom(x, y)) {
@@ -1154,21 +1364,19 @@ export default class HomeScene {
             this.showHint('Seu GeoPet está se movendo!');
         }
     }
-    
+
     onMouseMove(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const pos = this.getMousePosition(e);
         
         // Pet olha para o mouse
-        this.pet.lookAt(x, y);
+        this.pet.lookAt(pos.x, pos.y);
     }
-    
+
     isInsideRoom(x, y) {
         const b = this.roomBounds;
         return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height;
     }
-    
+
     isNearFood(x, y) {
         if (!this.food) return false;
         const dx = x - this.food.x;
@@ -1579,20 +1787,29 @@ export default class HomeScene {
         
         this.pet.update(deltaTime);
         
+        // Update throw physics if pet is thrown
+        if (this.pet.isThrown) {
+            this.pet.updateThrowPhysics(deltaTime, this.roomBounds);
+        }
+        
         // Atualiza display de humor
         this.updateMoodDisplay();
         
         // Atualiza info de idade periodicamente
         this.updatePetInfo();
         
-        // Constrain pet to room
-        this.constrainPetToRoom();
+        // Constrain pet to room (skip if thrown - physics handles it)
+        if (!this.pet.isThrown) {
+            this.constrainPetToRoom();
+        }
         
         // Check food collision
         this.checkFoodCollision();
         
-        // Random wandering
-        this.updateWandering(deltaTime);
+        // Random wandering (skip if held, thrown, or dizzy)
+        if (!this.pet.isHeld && !this.pet.isThrown && !this.pet.isDizzy) {
+            this.updateWandering(deltaTime);
+        }
         
         // Update food animation
         if (this.food) {
