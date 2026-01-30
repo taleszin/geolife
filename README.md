@@ -31,27 +31,6 @@ Breve: Experiência Tamagotchi geométrica — arte procedural e render a nível
 - [18. Anexo técnico: algoritmos de computação gráfica (detalhado)](#18-anexo-técnico-algoritmos-de-computação-gráfica)
 - [19. Apêndice: comandos úteis](#19-apêndice-comandos-úteis)
 
-
-1. Visão geral
-2. Objetivos do projeto
-3. Recursos do jogo
-4. Estrutura do repositório
-5. Pré-requisitos e execução
-6. Arquitetura técnica
-7. Modelo de dados e ativos
-8. Entidade principal: `GeoPet` (atributos e comportamento)
-9. Sistemas e responsabilidades
-10. Interações: UX e mapeamento para código
-11. Ciclo de vida, balanceamento e tempos (valores exatos)
-12. Pipeline de renderização e integração de algoritmos
-13. Testes, debugging e recomendações de desenvolvimento
-14. Guia de contribuição (resumo)
-15. Roadmap e melhorias propostas
-16. FAQ e resolução de problemas
-17. Créditos e licença
-18. Anexo técnico: algoritmos de computação gráfica (detalhado)
-19. Apêndice: comandos úteis
-
 1. Visão geral
 ---------------
 
